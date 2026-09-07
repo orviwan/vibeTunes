@@ -1445,6 +1445,7 @@ class SyncEngine(QObject):
         self._queue: "queue.Queue[SyncTask]" = queue.Queue()
         self._pending: list[SyncTask] = []
         self._skip_ids: set[str] = set()
+        self._active_task_id: str | None = None
         self._lock = threading.Lock()
         self._cancel_current = threading.Event()
         self._worker = threading.Thread(target=self._run, daemon=True)
@@ -1453,7 +1454,8 @@ class SyncEngine(QObject):
     def enqueue(self, task: SyncTask) -> int:
         with self._lock:
             self._pending.append(task)
-            position = len(self._pending)
+            active_offset = 1 if self._active_task_id is not None else 0
+            position = active_offset + len(self._pending)
         self._queue.put(task)
         self.task_queued.emit(task.task_id)
         self.queue_changed.emit()
@@ -1497,6 +1499,8 @@ class SyncEngine(QObject):
                 if task.task_id in self._skip_ids:
                     self._skip_ids.discard(task.task_id)
                     skip = True
+                else:
+                    self._active_task_id = task.task_id
             if skip:
                 continue
             self._cancel_current.clear()
@@ -1510,6 +1514,9 @@ class SyncEngine(QObject):
                     self.task_completed.emit(task.task_id)
             except Exception as exc:
                 self.task_failed.emit(task.task_id, str(exc))
+            finally:
+                with self._lock:
+                    self._active_task_id = None
 
     def _process_task(self, task: SyncTask) -> bool:
         """Returns True if the task was cancelled partway through."""

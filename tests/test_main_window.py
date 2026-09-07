@@ -193,6 +193,29 @@ def test_oauth_token_received_fills_token_field(qapp):
     assert "Signed in" in dialog.oauth_status_label.text()
 
 
+def test_detect_device_updates_storage_bar(qapp, tmp_path, monkeypatch):
+    from podplex.core.device import DeviceInfo
+
+    (tmp_path / "Music").mkdir()
+    (tmp_path / "Music" / "f.mp3").write_bytes(b"x" * 100)
+    info = DeviceInfo(mount_path=tmp_path, target="ipod6g", rockbox_version="1", read_only=False)
+    monkeypatch.setattr("podplex.ui.main_window.find_device", lambda mount_override="": info)
+    monkeypatch.setattr("podplex.ui.main_window.device_node_for_mount", lambda mount_path: None)
+    window = MainWindow(config=Config())
+    window.detect_device()
+    segs = dict(window.storage_bar.segments())
+    assert segs["music"] == 100
+
+
+def test_eject_device_clears_storage_bar(qapp, tmp_path, monkeypatch):
+    monkeypatch.setattr("podplex.ui.main_window.safe_eject", lambda node: None)
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window.device_node = "/dev/sdb1"
+    window.eject_device()
+    assert window.storage_bar.segments() == []
+
+
 def test_eject_device_resets_state(qapp, tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr("podplex.ui.main_window.safe_eject", lambda node: calls.append(node))

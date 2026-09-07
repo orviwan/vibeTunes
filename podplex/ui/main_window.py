@@ -31,9 +31,11 @@ from podplex.core.downloader import HttpDownloader
 from podplex.core.library_index import check_album_status, delete_album, scan_music_tree, status_label
 from podplex.core.plex_client import PlexClient, PlexOAuthLogin
 from podplex.core.playlist import delete_playlist, list_on_device_playlists, resolve_playlist_tracks, write_m3u8
+from podplex.core.storage_analyzer import StorageBreakdown, compute_storage_bar
 from podplex.core.sync_engine import SyncEngine, SyncTask
 from podplex.core.sync_task_builder import build_album_sync_task
 from podplex.ui.queue_dialog import QueueDialog
+from podplex.ui.storage_bar import StorageBar
 from podplex.ui.storage_dialog import StorageDialog
 
 
@@ -129,6 +131,9 @@ class MainWindow(QMainWindow):
         header.addWidget(eject_btn)
         header.addWidget(settings_btn)
         root.addLayout(header)
+
+        self.storage_bar = StorageBar()
+        root.addWidget(self.storage_bar)
 
         self.tabs = QTabWidget()
         root.addWidget(self.tabs)
@@ -227,6 +232,13 @@ class MainWindow(QMainWindow):
             ro = " (READ-ONLY)" if device.read_only else ""
             self.device_label.setText(f"iPod: {device.target or 'unknown'} @ {device.mount_path}{ro}")
         self._refresh_on_device_playlists()
+        self._refresh_storage_bar()
+
+    def _refresh_storage_bar(self) -> None:
+        if self.device_mount_path is None:
+            self.storage_bar.set_breakdown(StorageBreakdown(0, 0, 0, 0, 0))
+            return
+        self.storage_bar.set_breakdown(compute_storage_bar(self.device_mount_path))
 
     def fix_read_only(self) -> None:
         if self.device_node is None:
@@ -245,6 +257,7 @@ class MainWindow(QMainWindow):
         self.device_node = None
         self.device_label.setText("Safe to Disconnect")
         self._refresh_on_device_playlists()
+        self._refresh_storage_bar()
 
     def _refresh_on_device_playlists(self) -> None:
         self.on_device_playlist_list.clear()
@@ -334,6 +347,7 @@ class MainWindow(QMainWindow):
         freed = delete_album(self.device_mount_path, self.config.naming_pattern, self._current_album_tracks)
         self.status_label.setText(f"Deleted from iPod, freed {freed} bytes")
         self._refresh_album_status()
+        self._refresh_storage_bar()
 
     def sync_selected_album(self) -> None:
         album_items = self.album_list.selectedItems()
@@ -358,6 +372,7 @@ class MainWindow(QMainWindow):
     def _on_task_completed(self, task_id: str) -> None:
         self.status_label.setText("Sync complete")
         self.progress_bar.setValue(0)
+        self._refresh_storage_bar()
 
     def _on_task_failed(self, task_id: str, error: str) -> None:
         self.status_label.setText(f"Sync failed: {error}")

@@ -1,6 +1,6 @@
 # PodPlex Foundation & Core Sync Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a runnable PodPlex application that can authenticate to a Plex
 server, detect a mounted Rockbox iPod, browse the Plex music library, and
@@ -37,14 +37,14 @@ built on top of this foundation.
 - Create: `tests/conftest.py`
 - Create: `.gitignore`
 
-- [ ] **Step 1: Create the package directories and empty `__init__.py` files**
+- [x] **Step 1: Create the package directories and empty `__init__.py` files**
 
 ```bash
 mkdir -p podplex/core podplex/ui podplex/assets tests
 touch podplex/__init__.py podplex/core/__init__.py podplex/ui/__init__.py
 ```
 
-- [ ] **Step 2: Write `pyproject.toml`**
+- [x] **Step 2: Write `pyproject.toml`**
 
 ```toml
 [project]
@@ -75,7 +75,7 @@ packages = ["podplex"]
 dev = ["pytest>=8.0"]
 ```
 
-- [ ] **Step 3: Write `tests/conftest.py`**
+- [x] **Step 3: Write `tests/conftest.py`**
 
 ```python
 import os
@@ -93,7 +93,7 @@ def qapp():
     yield app
 ```
 
-- [ ] **Step 4: Write `.gitignore`**
+- [x] **Step 4: Write `.gitignore`**
 
 ```
 __pycache__/
@@ -103,7 +103,7 @@ __pycache__/
 *.egg-info/
 ```
 
-- [ ] **Step 5: Install dependencies and verify the package imports**
+- [x] **Step 5: Install dependencies and verify the package imports**
 
 Run: `uv sync`
 Expected: dependency resolution succeeds, `.venv/` created
@@ -111,7 +111,7 @@ Expected: dependency resolution succeeds, `.venv/` created
 Run: `uv run python -c "import podplex; import PySide6; import plexapi; print('ok')"`
 Expected: `ok`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add pyproject.toml podplex tests/conftest.py .gitignore
@@ -131,7 +131,7 @@ EOF
 - Create: `podplex/core/config.py`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_config.py
@@ -176,12 +176,12 @@ def test_load_corrupt_json_returns_defaults(tmp_path):
     assert loaded == Config()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_config.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.config'`
 
-- [ ] **Step 3: Write `podplex/core/config.py`**
+- [x] **Step 3: Write `podplex/core/config.py`**
 
 ```python
 from __future__ import annotations
@@ -227,12 +227,12 @@ class Config:
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_config.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/config.py tests/test_config.py
@@ -252,7 +252,7 @@ EOF
 - Create: `podplex/core/naming.py`
 - Test: `tests/test_naming.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_naming.py
@@ -309,12 +309,12 @@ def test_track_filename_without_number():
     assert track_filename(None, "Song Title", "mp3") == "Song Title.mp3"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_naming.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.naming'`
 
-- [ ] **Step 3: Write `podplex/core/naming.py`**
+- [x] **Step 3: Write `podplex/core/naming.py`**
 
 ```python
 from __future__ import annotations
@@ -366,12 +366,12 @@ def track_filename(track_number: int | None, title: str, extension: str) -> str:
     return f"{title_c}.{ext}"
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_naming.py -v`
 Expected: 11 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/naming.py tests/test_naming.py
@@ -391,7 +391,7 @@ EOF
 - Create: `podplex/core/device.py`
 - Test: `tests/test_device.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_device.py
@@ -507,12 +507,12 @@ def test_safe_eject_syncs_unmounts_and_powers_off(monkeypatch):
     ]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_device.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.device'`
 
-- [ ] **Step 3: Write `podplex/core/device.py`**
+- [x] **Step 3: Write `podplex/core/device.py`**
 
 ```python
 from __future__ import annotations
@@ -630,12 +630,12 @@ def safe_eject(device_node: str) -> list[subprocess.CompletedProcess]:
     return results
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_device.py -v`
 Expected: 11 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/device.py tests/test_device.py
@@ -655,7 +655,7 @@ EOF
 - Create: `podplex/core/storage_analyzer.py`
 - Test: `tests/test_storage_analyzer.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_storage_analyzer.py
@@ -724,12 +724,12 @@ def test_limit_truncates_results():
     assert len(largest_files(tracks, limit=3)) == 3
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_storage_analyzer.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.storage_analyzer'`
 
-- [ ] **Step 3: Write `podplex/core/storage_analyzer.py`**
+- [x] **Step 3: Write `podplex/core/storage_analyzer.py`**
 
 ```python
 from __future__ import annotations
@@ -817,12 +817,12 @@ def largest_artists(tracks: list[TrackFile], limit: int = 50) -> list[ArtistSize
     return artists[:limit]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_storage_analyzer.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/storage_analyzer.py tests/test_storage_analyzer.py
@@ -842,7 +842,7 @@ EOF
 - Create: `podplex/core/plex_client.py`
 - Test: `tests/test_plex_client.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_plex_client.py
@@ -994,12 +994,12 @@ Note: `PlexTrack` is a plain dataclass constructed positionally in
 implementation in Step 3 exactly: `key, title, artist, album,
 track_number, year, disc_number, duration_ms, file_path, size_bytes`.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_plex_client.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.plex_client'`
 
-- [ ] **Step 3: Write `podplex/core/plex_client.py`**
+- [x] **Step 3: Write `podplex/core/plex_client.py`**
 
 ```python
 from __future__ import annotations
@@ -1102,12 +1102,12 @@ class PlexOAuthLogin:
             on_authorized(self._pinlogin.token)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_plex_client.py -v`
 Expected: 7 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/plex_client.py tests/test_plex_client.py
@@ -1127,7 +1127,7 @@ EOF
 - Create: `podplex/core/downloader.py`
 - Test: `tests/test_downloader.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_downloader.py
@@ -1192,12 +1192,12 @@ def test_http_downloader_stops_when_cancelled(tmp_path, monkeypatch):
     assert dest.read_bytes() == b"aa"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_downloader.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.downloader'`
 
-- [ ] **Step 3: Write `podplex/core/downloader.py`**
+- [x] **Step 3: Write `podplex/core/downloader.py`**
 
 ```python
 from __future__ import annotations
@@ -1244,12 +1244,12 @@ class HttpDownloader:
                     on_progress(written, total)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_downloader.py -v`
 Expected: 2 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/downloader.py tests/test_downloader.py
@@ -1269,7 +1269,7 @@ EOF
 - Create: `podplex/core/sync_engine.py`
 - Test: `tests/test_sync_engine.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_sync_engine.py
@@ -1393,12 +1393,12 @@ def test_remove_pending_task_is_never_processed(tmp_path):
     engine.cancel_all()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_sync_engine.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.sync_engine'`
 
-- [ ] **Step 3: Write `podplex/core/sync_engine.py`**
+- [x] **Step 3: Write `podplex/core/sync_engine.py`**
 
 ```python
 from __future__ import annotations
@@ -1549,12 +1549,12 @@ class SyncEngine(QObject):
         os.replace(part_path, track.dest_path)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_sync_engine.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/sync_engine.py tests/test_sync_engine.py
@@ -1574,7 +1574,7 @@ EOF
 - Create: `podplex/core/sync_task_builder.py`
 - Test: `tests/test_sync_task_builder.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_sync_task_builder.py
@@ -1627,12 +1627,12 @@ def test_build_album_sync_task_raises_on_empty_tracks(tmp_path):
         build_album_sync_task(FakeClient(), [], tmp_path, "standard", "task-1")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_sync_task_builder.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.core.sync_task_builder'`
 
-- [ ] **Step 3: Write `podplex/core/sync_task_builder.py`**
+- [x] **Step 3: Write `podplex/core/sync_task_builder.py`**
 
 ```python
 from __future__ import annotations
@@ -1671,12 +1671,12 @@ def build_album_sync_task(
     return SyncTask(name=name, tracks=sync_tracks, task_id=task_id)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_sync_task_builder.py -v`
 Expected: 3 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add podplex/core/sync_task_builder.py tests/test_sync_task_builder.py
@@ -1697,7 +1697,7 @@ EOF
 - Create: `podplex/main.py`
 - Test: `tests/test_main_window.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_main_window.py
@@ -1718,12 +1718,12 @@ def test_detect_device_updates_label_when_none_found(qapp, tmp_path, monkeypatch
     assert window.device_label.text() == "iPod: not detected"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_main_window.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'podplex.ui.main_window'`
 
-- [ ] **Step 3: Write `podplex/ui/main_window.py`**
+- [x] **Step 3: Write `podplex/ui/main_window.py`**
 
 ```python
 from __future__ import annotations
@@ -1899,7 +1899,7 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"Sync failed: {error}")
 ```
 
-- [ ] **Step 4: Write `podplex/main.py`**
+- [x] **Step 4: Write `podplex/main.py`**
 
 ```python
 from __future__ import annotations
@@ -1923,17 +1923,17 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_main_window.py -v`
 Expected: 2 passed
 
-- [ ] **Step 6: Run the full test suite**
+- [x] **Step 6: Run the full test suite**
 
 Run: `uv run pytest -v`
 Expected: all tests across every module pass (config, naming, device, storage_analyzer, plex_client, downloader, sync_engine, sync_task_builder, main_window)
 
-- [ ] **Step 7: Manual smoke test against real hardware**
+- [x] **Step 7: Manual smoke test against real hardware**
 
 Run: `uv run podplex`
 Expected: window opens. Click **Settings**, enter your real Plex URL and
@@ -1944,7 +1944,7 @@ iPod** — progress bar advances and status shows "Sync complete"; verify
 the files exist on the iPod at the expected path for the configured
 `naming_pattern`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add podplex/ui/main_window.py podplex/main.py tests/test_main_window.py

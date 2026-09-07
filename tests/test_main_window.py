@@ -168,6 +168,76 @@ def test_sync_selected_playlist_reuses_existing_track(qapp, tmp_path):
     assert window.engine.pending_tasks() == []
 
 
+def test_eject_device_resets_state(qapp, tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr("podplex.ui.main_window.safe_eject", lambda node: calls.append(node))
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window.device_node = "/dev/sdb1"
+    window.eject_device()
+    assert calls == ["/dev/sdb1"]
+    assert window.device_mount_path is None
+    assert window.device_node is None
+    assert window.device_label.text() == "Safe to Disconnect"
+
+
+def test_eject_device_warns_without_device(qapp, monkeypatch):
+    window = MainWindow(config=Config())
+    warnings = []
+    monkeypatch.setattr("podplex.ui.main_window.QMessageBox.warning", lambda *a, **k: warnings.append(a))
+    window.eject_device()
+    assert len(warnings) == 1
+
+
+def test_fix_read_only_remounts_and_redetects(qapp, monkeypatch):
+    calls = []
+    monkeypatch.setattr("podplex.ui.main_window.remount_read_write", lambda node: calls.append(node))
+    monkeypatch.setattr("podplex.ui.main_window.find_device", lambda mount_override="": None)
+    window = MainWindow(config=Config())
+    window.device_node = "/dev/sdb1"
+    window.fix_read_only()
+    assert calls == ["/dev/sdb1"]
+    assert window.device_label.text() == "iPod: not detected"
+
+
+def test_detect_device_sets_device_node(qapp, tmp_path, monkeypatch):
+    from podplex.core.device import DeviceInfo
+
+    info = DeviceInfo(mount_path=tmp_path, target="ipod6g", rockbox_version="3.15", read_only=False)
+    monkeypatch.setattr("podplex.ui.main_window.find_device", lambda mount_override="": info)
+    monkeypatch.setattr("podplex.ui.main_window.device_node_for_mount", lambda mount_path: "/dev/sdb1")
+    window = MainWindow(config=Config())
+    window.detect_device()
+    assert window.device_node == "/dev/sdb1"
+
+
+def test_on_device_playlists_listed_after_detect(qapp, tmp_path, monkeypatch):
+    (tmp_path / "Playlists").mkdir()
+    (tmp_path / "Playlists" / "Road Trip.m3u8").write_text("x")
+    from podplex.core.device import DeviceInfo
+
+    info = DeviceInfo(mount_path=tmp_path, target="ipod6g", rockbox_version="3.15", read_only=False)
+    monkeypatch.setattr("podplex.ui.main_window.find_device", lambda mount_override="": info)
+    monkeypatch.setattr("podplex.ui.main_window.device_node_for_mount", lambda mount_path: None)
+    window = MainWindow(config=Config())
+    window.detect_device()
+    assert window.on_device_playlist_list.count() == 1
+    assert window.on_device_playlist_list.item(0).text() == "Road Trip.m3u8"
+
+
+def test_delete_selected_on_device_playlist_removes_file(qapp, tmp_path):
+    (tmp_path / "Playlists").mkdir()
+    p = tmp_path / "Playlists" / "Road Trip.m3u8"
+    p.write_text("x")
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window._refresh_on_device_playlists()
+    window.on_device_playlist_list.setCurrentRow(0)
+    window.delete_selected_on_device_playlist()
+    assert not p.exists()
+    assert window.on_device_playlist_list.count() == 0
+
+
 def test_open_queue_dialog_creates_dialog(qapp):
     window = MainWindow(config=Config())
     window.open_queue_dialog()

@@ -24,11 +24,11 @@ from PySide6.QtWidgets import (
 
 from podplex.core.artwork import ThumbnailCache
 from podplex.core.config import Config
-from podplex.core.device import find_device
+from podplex.core.device import device_node_for_mount, find_device, remount_read_write, safe_eject
 from podplex.core.downloader import HttpDownloader
 from podplex.core.library_index import check_album_status, delete_album, scan_music_tree, status_label
 from podplex.core.plex_client import PlexClient
-from podplex.core.playlist import resolve_playlist_tracks, write_m3u8
+from podplex.core.playlist import delete_playlist, list_on_device_playlists, resolve_playlist_tracks, write_m3u8
 from podplex.core.sync_engine import SyncEngine, SyncTask
 from podplex.core.sync_task_builder import build_album_sync_task
 from podplex.ui.queue_dialog import QueueDialog
@@ -89,11 +89,17 @@ class MainWindow(QMainWindow):
         queue_btn.clicked.connect(self.open_queue_dialog)
         storage_btn = QPushButton("🔍 Largest Files & Albums")
         storage_btn.clicked.connect(self.open_storage_dialog)
+        fix_ro_btn = QPushButton("⚠ Fix Read-Only")
+        fix_ro_btn.clicked.connect(self.fix_read_only)
+        eject_btn = QPushButton("⏏ Eject iPod")
+        eject_btn.clicked.connect(self.eject_device)
         header.addWidget(self.device_label)
         header.addWidget(detect_btn)
         header.addWidget(load_btn)
         header.addWidget(queue_btn)
         header.addWidget(storage_btn)
+        header.addWidget(fix_ro_btn)
+        header.addWidget(eject_btn)
         header.addWidget(settings_btn)
         root.addLayout(header)
 
@@ -160,11 +166,22 @@ class MainWindow(QMainWindow):
         pl_sync_row.addWidget(self.playlist_status_label)
         playlists_layout.addLayout(pl_sync_row)
 
+        on_device_row = QHBoxLayout()
+        on_device_row.addWidget(QLabel("On iPod:"))
+        self.on_device_playlist_list = QListWidget()
+        delete_playlist_btn = QPushButton("Delete Playlist")
+        delete_playlist_btn.clicked.connect(self.delete_selected_on_device_playlist)
+        on_device_row.addWidget(self.on_device_playlist_list)
+        on_device_row.addWidget(delete_playlist_btn)
+        playlists_layout.addLayout(on_device_row)
+
         self.tabs.addTab(playlists_tab, "Playlists")
 
         self._artists_by_name = {}
         self._albums_by_name = {}
         self._playlists_by_name = {}
+        self._on_device_playlists_by_name = {}
+        self.device_node: str | None = None
         self._current_album_tracks: list = []
         self._queue_dialog: QueueDialog | None = None
         self._storage_dialog: StorageDialog | None = None
@@ -176,10 +193,48 @@ class MainWindow(QMainWindow):
         if device is None:
             self.device_label.setText("iPod: not detected")
             self.device_mount_path = None
+            self.device_node = None
         else:
             self.device_mount_path = device.mount_path
+            self.device_node = device_node_for_mount(device.mount_path)
             ro = " (READ-ONLY)" if device.read_only else ""
             self.device_label.setText(f"iPod: {device.target or 'unknown'} @ {device.mount_path}{ro}")
+        self._refresh_on_device_playlists()
+
+    def fix_read_only(self) -> None:
+        if self.device_node is None:
+            QMessageBox.warning(self, "PodPlex", "Detect your iPod first.")
+            return
+        remount_read_write(self.device_node)
+        self.detect_device()
+
+    def eject_device(self) -> None:
+        if self.device_node is None:
+            QMessageBox.warning(self, "PodPlex", "Detect your iPod first.")
+            return
+        self.status_label.setText("Flushing Cache...")
+        safe_eject(self.device_node)
+        self.device_mount_path = None
+        self.device_node = None
+        self.device_label.setText("Safe to Disconnect")
+        self._refresh_on_device_playlists()
+
+    def _refresh_on_device_playlists(self) -> None:
+        self.on_device_playlist_list.clear()
+        self._on_device_playlists_by_name.clear()
+        if self.device_mount_path is None:
+            return
+        for path in list_on_device_playlists(self.device_mount_path):
+            self._on_device_playlists_by_name[path.name] = path
+            self.on_device_playlist_list.addItem(path.name)
+
+    def delete_selected_on_device_playlist(self) -> None:
+        items = self.on_device_playlist_list.selectedItems()
+        if not items:
+            return
+        path = self._on_device_playlists_by_name[items[0].text()]
+        delete_playlist(path)
+        self._refresh_on_device_playlists()
 
     def open_settings(self) -> None:
         dialog = SettingsDialog(self.config, self)
@@ -323,6 +378,7 @@ class MainWindow(QMainWindow):
             tracks, candidates, self.plex_client, self.device_mount_path, self.config.naming_pattern
         )
         out_path = write_m3u8(name, self.device_mount_path, resolved_paths)
+        self._refresh_on_device_playlists()
         if to_download:
             task = SyncTask(name=f"Playlist: {name}", tracks=to_download, task_id=str(uuid.uuid4()))
             self.engine.enqueue(task)

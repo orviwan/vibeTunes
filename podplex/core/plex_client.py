@@ -48,6 +48,9 @@ class PlexClient:
     def albums_for_artist(self, artist):
         return artist.albums()
 
+    def playlists(self):
+        return self._server.playlists(playlistType="audio")
+
     def tracks_for_album(self, album) -> list[PlexTrack]:
         return [_to_plex_track(t) for t in album.tracks()]
 

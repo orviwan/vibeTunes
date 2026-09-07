@@ -91,6 +91,17 @@ def test_artists_uses_configured_library():
     assert client.artists() == ["artist1", "artist2"]
 
 
+class FakeServerWithPlaylists(FakeServer):
+    def playlists(self, playlistType="audio"):
+        return [f"playlist-{playlistType}"]
+
+
+def test_playlists_requests_audio_playlist_type():
+    server = FakeServerWithPlaylists([FakeSection("Music", "artist")])
+    client = PlexClient(server, "Music")
+    assert client.playlists() == ["playlist-audio"]
+
+
 def test_test_connection_true_on_success():
     server = FakeServer([FakeSection("Music", "artist")])
     client = PlexClient(server, "Music")

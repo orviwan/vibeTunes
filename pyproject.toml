@@ -1,26 +1,22 @@
 [project]
-name = "podplex"
+name = "vibetunes"
 version = "0.1.0"
-description = "Sync a Plex music library to a Rockbox-modded iPod on Linux"
+description = "The modern iTunes alternative for syncing lossless FLACs from Plex to your Rockbox iPod"
+authors = [
+    { name = "orviwan" }
+]
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "PySide6>=6.6",
-    "plexapi>=4.15",
-    "requests>=2.31",
-    "mutagen>=1.47",
-    "Pillow>=10.0",
-    "rapidfuzz>=3.5",
+    "pyside6>=6.8.0",
+    "plexapi>=4.16.0",
+    "mutagen>=1.47.0",
+    "requests>=2.31.0",
 ]
 
 [project.scripts]
-podplex = "podplex.main:main"
+vibetunes = "vibetunes.main:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["podplex"]
-
-[dependency-groups]
-dev = ["pytest>=8.0"]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

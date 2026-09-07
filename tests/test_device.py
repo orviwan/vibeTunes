@@ -1,110 +1,108 @@
+import tempfile
 from pathlib import Path
+from vibetunes.core.device import parse_rockbox_info, get_target_model_name, detect_ipod
 
-from podplex.core.device import (
-    device_node_for_mount,
-    find_device,
-    is_read_only,
-    parse_rockbox_info,
-    remount_read_write,
-    safe_eject,
-)
+def test_get_target_model_name():
+    assert get_target_model_name("ipod6g") == "iPod Classic (6th/7th Gen)"
+    assert get_target_model_name("ipodvideo") == "iPod Video (5th/5.5 Gen)"
+    assert get_target_model_name("ipodmini1g") == "iPod Mini (1st Gen)"
+    assert get_target_model_name("custom") == "iPod (custom)"
 
+def test_parse_rockbox_info():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rockbox_dir = Path(tmpdir) / ".rockbox"
+        rockbox_dir.mkdir()
+        info_file = rockbox_dir / "rockbox-info.txt"
+        info_file.write_text(
+            "Target: ipod6g\n"
+            "Memory: 64\n"
+            "Version: 12345abcdef\n",
+            encoding="utf-8"
+        )
 
-def _make_fake_ipod(root: Path, target="ipod6g", version="3.15") -> Path:
-    mount = root / "IPOD"
-    rockbox_dir = mount / ".rockbox"
-    rockbox_dir.mkdir(parents=True)
-    (rockbox_dir / "rockbox-info.txt").write_text(f"Target: {target}\nVersion: {version}\n")
-    return mount
+        parsed = parse_rockbox_info(rockbox_dir)
+        assert parsed["target"] == "ipod6g"
+        assert parsed["memory"] == 64
+        assert parsed["version"] == "12345abcdef"
 
+def test_detect_ipod_custom_path():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rockbox_dir = Path(tmpdir) / ".rockbox"
+        rockbox_dir.mkdir()
+        info_file = rockbox_dir / "rockbox-info.txt"
+        info_file.write_text("Target: ipod6g\nMemory: 64\nVersion: test_ver\n")
 
-def test_find_device_locates_rockbox_mount(tmp_path):
-    media_root = tmp_path / "media"
-    media_root.mkdir()
-    mount = _make_fake_ipod(media_root)
-    device = find_device(scan_roots=(str(media_root),))
-    assert device is not None
-    assert device.mount_path == mount
-    assert device.target == "ipod6g"
-    assert device.rockbox_version == "3.15"
+        dev = detect_ipod(custom_path=tmpdir)
+        assert dev is not None
+        assert dev.target == "ipod6g"
+        assert dev.memory_mb == 64
+        assert dev.model_name == "iPod Classic (6th/7th Gen)"
 
+def test_is_mount_readonly_rw():
+    from vibetunes.core.device import is_mount_readonly
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Normal writable directory should return False
+        assert is_mount_readonly(tmpdir) is False
 
-def test_find_device_returns_none_when_no_rockbox_dir(tmp_path):
-    media_root = tmp_path / "media"
-    (media_root / "SOMEDRIVE").mkdir(parents=True)
-    device = find_device(scan_roots=(str(media_root),))
-    assert device is None
+def test_remount_rw_no_node():
+    from vibetunes.core.device import remount_rw
+    success, msg = remount_rw("")
+    assert success is False
+    assert "No device node" in msg
 
+def test_auto_mount_unmounted_ipod(monkeypatch):
+    import json
+    from vibetunes.core.device import auto_mount_unmounted_ipod
 
-def test_find_device_uses_mount_override(tmp_path):
-    mount = _make_fake_ipod(tmp_path, target="ipodvideo")
-    device = find_device(mount_override=str(mount))
-    assert device is not None
-    assert device.target == "ipodvideo"
+    mock_lsblk = json.dumps({
+        "blockdevices": [
+            {
+                "name": "sda",
+                "model": "latform iPod Ada",
+                "tran": "usb",
+                "children": [
+                    {
+                        "name": "sda1",
+                        "label": "IPOD",
+                        "fstype": "vfat",
+                        "mountpoints": []
+                    }
+                ]
+            }
+        ]
+    })
 
+    commands_executed = []
 
-def test_parse_rockbox_info_missing_file_returns_none(tmp_path):
-    target, version = parse_rockbox_info(tmp_path / "nope.txt")
-    assert target is None
-    assert version is None
+    def mock_check_output(cmd, text=True, timeout=None):
+        if "lsblk" in cmd:
+            return mock_lsblk
+        if "findmnt" in cmd:
+            return "/media/mock/IPOD"
+        return ""
 
-
-def test_is_read_only_true_when_ro_option_present(tmp_path):
-    mounts = tmp_path / "mounts"
-    mounts.write_text("/dev/sdb1 /media/IPOD vfat ro,relatime 0 0\n")
-    assert is_read_only(Path("/media/IPOD"), mounts_path=mounts) is True
-
-
-def test_is_read_only_false_when_rw(tmp_path):
-    mounts = tmp_path / "mounts"
-    mounts.write_text("/dev/sdb1 /media/IPOD vfat rw,relatime 0 0\n")
-    assert is_read_only(Path("/media/IPOD"), mounts_path=mounts) is False
-
-
-def test_is_read_only_false_when_mount_not_found(tmp_path):
-    mounts = tmp_path / "mounts"
-    mounts.write_text("/dev/sda1 /home ext4 rw 0 0\n")
-    assert is_read_only(Path("/media/IPOD"), mounts_path=mounts) is False
-
-
-def test_device_node_for_mount(tmp_path):
-    mounts = tmp_path / "mounts"
-    mounts.write_text("/dev/sdb1 /media/IPOD vfat rw,relatime 0 0\n")
-    assert device_node_for_mount(Path("/media/IPOD"), mounts_path=mounts) == "/dev/sdb1"
-
-
-def test_remount_read_write_invokes_udisksctl(monkeypatch):
-    calls = []
-
-    def fake_run(cmd, capture_output, text):
-        calls.append(cmd)
-
-        class Result:
+    def mock_run(cmd, capture_output=True, text=True, timeout=None):
+        commands_executed.append(cmd)
+        class MockRes:
             returncode = 0
+            stdout = "Mounted /dev/sda1 at /media/mock/IPOD"
+            stderr = ""
+        return MockRes()
 
-        return Result()
+    monkeypatch.setattr("subprocess.check_output", mock_check_output)
+    monkeypatch.setattr("subprocess.run", mock_run)
 
-    monkeypatch.setattr("podplex.core.device.subprocess.run", fake_run)
-    remount_read_write("/dev/sdb1")
-    assert calls == [["udisksctl", "mount", "-b", "/dev/sdb1", "-o", "remount,rw"]]
+    with tempfile.TemporaryDirectory() as fake_mp:
+        # Patch findmnt to return fake_mp so Path.is_dir() succeeds
+        def mock_check_output_with_dir(cmd, text=True, timeout=None):
+            if "lsblk" in cmd:
+                return mock_lsblk
+            if "findmnt" in cmd:
+                return fake_mp
+            return ""
+        monkeypatch.setattr("subprocess.check_output", mock_check_output_with_dir)
 
-
-def test_safe_eject_syncs_unmounts_and_powers_off(monkeypatch):
-    calls = []
-    monkeypatch.setattr("podplex.core.device.os.sync", lambda: calls.append("sync"))
-
-    def fake_run(cmd, capture_output, text):
-        calls.append(cmd)
-
-        class Result:
-            returncode = 0
-
-        return Result()
-
-    monkeypatch.setattr("podplex.core.device.subprocess.run", fake_run)
-    safe_eject("/dev/sdb1")
-    assert calls == [
-        "sync",
-        ["udisksctl", "unmount", "-b", "/dev/sdb1"],
-        ["udisksctl", "power-off", "-b", "/dev/sdb1"],
-    ]
+        mounted = auto_mount_unmounted_ipod()
+        assert len(mounted) == 1
+        assert str(mounted[0]) == fake_mp
+        assert any("udisksctl" in c and "/dev/sda1" in c for c in commands_executed)

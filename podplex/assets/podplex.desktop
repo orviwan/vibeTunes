@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=PodPlex
-Comment=Sync a Plex music library to a Rockbox-modded iPod
-Exec=podplex
-Icon=podplex
-Terminal=false
-Categories=AudioVideo;Audio;
-StartupNotify=true

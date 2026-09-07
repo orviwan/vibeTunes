@@ -3,8 +3,10 @@ from pathlib import Path
 from podplex.core.library_index import (
     AlbumStatus,
     TrackStatus,
+    album_folder_path,
     check_album_status,
     delete_album,
+    delete_path,
     scan_music_tree,
     status_label,
 )
@@ -121,3 +123,28 @@ def test_status_label_partial():
 def test_status_label_missing():
     ts = [TrackStatus(track=_track("A", 1), on_device=False, dest_path=Path("x"))]
     assert status_label(AlbumStatus(tracks=ts)) == "Not on iPod"
+
+
+def test_album_folder_path_joins_music_artist_album(tmp_path):
+    assert album_folder_path(tmp_path, "Artist A", "Album 1") == tmp_path / "Music" / "Artist A" / "Album 1"
+
+
+def test_delete_path_removes_directory_and_returns_bytes_freed(tmp_path):
+    d = tmp_path / "Music" / "Artist A" / "Album 1"
+    d.mkdir(parents=True)
+    (d / "01.mp3").write_bytes(b"x" * 12)
+    freed = delete_path(d)
+    assert freed == 12
+    assert not d.exists()
+
+
+def test_delete_path_removes_single_file_and_returns_bytes_freed(tmp_path):
+    f = tmp_path / "track.mp3"
+    f.write_bytes(b"x" * 7)
+    freed = delete_path(f)
+    assert freed == 7
+    assert not f.exists()
+
+
+def test_delete_path_missing_returns_zero(tmp_path):
+    assert delete_path(tmp_path / "nope") == 0

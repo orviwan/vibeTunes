@@ -65,10 +65,24 @@ def delete_album(mount_path: Path, naming_pattern: str, tracks: list[PlexTrack])
     if not tracks:
         return 0
     album_dir = album_directory_for(mount_path, naming_pattern, tracks[0])
-    if not album_dir.exists():
+    return delete_path(album_dir)
+
+
+def album_folder_path(mount_path: Path, artist: str, album: str) -> Path:
+    """The on-device folder for an (artist, album) pair as reported by scan_music_tree."""
+    return mount_path / "Music" / artist / album
+
+
+def delete_path(path: Path) -> int:
+    """Deletes a file or directory tree. Returns bytes freed."""
+    if not path.exists():
         return 0
-    freed = sum(f.stat().st_size for f in album_dir.rglob("*") if f.is_file())
-    shutil.rmtree(album_dir)
+    if path.is_dir():
+        freed = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+        shutil.rmtree(path)
+        return freed
+    freed = path.stat().st_size
+    path.unlink()
     return freed
 
 

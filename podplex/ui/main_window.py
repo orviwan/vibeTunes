@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from podplex.core.config import Config
 from podplex.core.device import find_device
 from podplex.core.downloader import HttpDownloader
+from podplex.core.library_index import check_album_status, delete_album, status_label
 from podplex.core.plex_client import PlexClient
 from podplex.core.sync_engine import SyncEngine
 from podplex.core.sync_task_builder import build_album_sync_task
@@ -88,9 +89,18 @@ class MainWindow(QMainWindow):
         self.artist_list = QListWidget()
         self.artist_list.itemSelectionChanged.connect(self.on_artist_selected)
         self.album_list = QListWidget()
+        self.album_list.itemSelectionChanged.connect(self.on_album_selected)
         lists.addWidget(self.artist_list)
         lists.addWidget(self.album_list)
         root.addLayout(lists)
+
+        status_row = QHBoxLayout()
+        self.album_status_label = QLabel("")
+        delete_btn = QPushButton("Delete from iPod")
+        delete_btn.clicked.connect(self.delete_selected_album)
+        status_row.addWidget(self.album_status_label)
+        status_row.addWidget(delete_btn)
+        root.addLayout(status_row)
 
         sync_row = QHBoxLayout()
         sync_btn = QPushButton("Sync Album to iPod")
@@ -104,6 +114,7 @@ class MainWindow(QMainWindow):
 
         self._artists_by_name = {}
         self._albums_by_name = {}
+        self._current_album_tracks: list = []
 
     def detect_device(self) -> None:
         device = find_device(mount_override=self.config.ipod_mount_override)
@@ -136,12 +147,38 @@ class MainWindow(QMainWindow):
         items = self.artist_list.selectedItems()
         self.album_list.clear()
         self._albums_by_name.clear()
+        self.album_status_label.setText("")
+        self._current_album_tracks = []
         if not items or self.plex_client is None:
             return
         artist = self._artists_by_name[items[0].text()]
         for album in self.plex_client.albums_for_artist(artist):
             self._albums_by_name[album.title] = album
             self.album_list.addItem(album.title)
+
+    def on_album_selected(self) -> None:
+        items = self.album_list.selectedItems()
+        if not items or self.plex_client is None:
+            self._current_album_tracks = []
+            self.album_status_label.setText("")
+            return
+        album = self._albums_by_name[items[0].text()]
+        self._current_album_tracks = self.plex_client.tracks_for_album(album)
+        self._refresh_album_status()
+
+    def _refresh_album_status(self) -> None:
+        if not self._current_album_tracks or self.device_mount_path is None:
+            self.album_status_label.setText("")
+            return
+        status = check_album_status(self.device_mount_path, self.config.naming_pattern, self._current_album_tracks)
+        self.album_status_label.setText(status_label(status))
+
+    def delete_selected_album(self) -> None:
+        if not self._current_album_tracks or self.device_mount_path is None:
+            return
+        freed = delete_album(self.device_mount_path, self.config.naming_pattern, self._current_album_tracks)
+        self.status_label.setText(f"Deleted from iPod, freed {freed} bytes")
+        self._refresh_album_status()
 
     def sync_selected_album(self) -> None:
         album_items = self.album_list.selectedItems()

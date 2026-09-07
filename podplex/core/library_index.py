@@ -72,6 +72,14 @@ def delete_album(mount_path: Path, naming_pattern: str, tracks: list[PlexTrack])
     return freed
 
 
+def status_label(status: AlbumStatus) -> str:
+    if status.state == "ON_IPOD":
+        return "✓ ON IPOD"
+    if status.state == "PARTIAL":
+        return f"◐ PARTIAL ({status.synced_count}/{status.total_count})"
+    return "Not on iPod"
+
+
 def scan_music_tree(mount_path: Path) -> list[TrackFile]:
     """Walk Music/<Artist>/<Album...>/*.<ext> for storage-analyzer ranking."""
     music_root = mount_path / "Music"

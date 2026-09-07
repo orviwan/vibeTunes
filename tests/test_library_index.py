@@ -1,4 +1,13 @@
-from podplex.core.library_index import check_album_status, delete_album, scan_music_tree
+from pathlib import Path
+
+from podplex.core.library_index import (
+    AlbumStatus,
+    TrackStatus,
+    check_album_status,
+    delete_album,
+    scan_music_tree,
+    status_label,
+)
 from podplex.core.plex_client import PlexTrack
 
 
@@ -94,3 +103,21 @@ def test_scan_music_tree_ignores_non_audio_files(tmp_path):
 
 def test_scan_music_tree_returns_empty_when_no_music_dir(tmp_path):
     assert scan_music_tree(tmp_path) == []
+
+
+def test_status_label_on_ipod():
+    ts = [TrackStatus(track=_track("A", 1), on_device=True, dest_path=Path("x"))]
+    assert status_label(AlbumStatus(tracks=ts)) == "✓ ON IPOD"
+
+
+def test_status_label_partial():
+    ts = [
+        TrackStatus(track=_track("A", 1), on_device=True, dest_path=Path("x")),
+        TrackStatus(track=_track("B", 2), on_device=False, dest_path=Path("y")),
+    ]
+    assert status_label(AlbumStatus(tracks=ts)) == "◐ PARTIAL (1/2)"
+
+
+def test_status_label_missing():
+    ts = [TrackStatus(track=_track("A", 1), on_device=False, dest_path=Path("x"))]
+    assert status_label(AlbumStatus(tracks=ts)) == "Not on iPod"

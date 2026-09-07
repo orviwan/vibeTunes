@@ -27,6 +27,8 @@ from podplex.core.library_index import check_album_status, delete_album, status_
 from podplex.core.plex_client import PlexClient
 from podplex.core.sync_engine import SyncEngine
 from podplex.core.sync_task_builder import build_album_sync_task
+from podplex.ui.queue_dialog import QueueDialog
+from podplex.ui.storage_dialog import StorageDialog
 
 
 class SettingsDialog(QDialog):
@@ -79,9 +81,15 @@ class MainWindow(QMainWindow):
         load_btn.clicked.connect(self.load_library)
         settings_btn = QPushButton("Settings")
         settings_btn.clicked.connect(self.open_settings)
+        queue_btn = QPushButton("☰ View Queue")
+        queue_btn.clicked.connect(self.open_queue_dialog)
+        storage_btn = QPushButton("🔍 Largest Files & Albums")
+        storage_btn.clicked.connect(self.open_storage_dialog)
         header.addWidget(self.device_label)
         header.addWidget(detect_btn)
         header.addWidget(load_btn)
+        header.addWidget(queue_btn)
+        header.addWidget(storage_btn)
         header.addWidget(settings_btn)
         root.addLayout(header)
 
@@ -115,6 +123,8 @@ class MainWindow(QMainWindow):
         self._artists_by_name = {}
         self._albums_by_name = {}
         self._current_album_tracks: list = []
+        self._queue_dialog: QueueDialog | None = None
+        self._storage_dialog: StorageDialog | None = None
 
     def detect_device(self) -> None:
         device = find_device(mount_override=self.config.ipod_mount_override)
@@ -206,3 +216,14 @@ class MainWindow(QMainWindow):
 
     def _on_task_failed(self, task_id: str, error: str) -> None:
         self.status_label.setText(f"Sync failed: {error}")
+
+    def open_queue_dialog(self) -> None:
+        self._queue_dialog = QueueDialog(self.engine, self)
+        self._queue_dialog.show()
+
+    def open_storage_dialog(self) -> None:
+        if self.device_mount_path is None:
+            QMessageBox.warning(self, "PodPlex", "Detect your iPod first.")
+            return
+        self._storage_dialog = StorageDialog(self.device_mount_path, self)
+        self._storage_dialog.show()

@@ -64,3 +64,26 @@ def test_delete_selected_album_removes_files_and_refreshes_status(qapp, tmp_path
     window.delete_selected_album()
     assert not album_dir.exists()
     assert window.album_status_label.text() == "Not on iPod"
+
+
+def test_open_queue_dialog_creates_dialog(qapp):
+    window = MainWindow(config=Config())
+    window.open_queue_dialog()
+    assert window._queue_dialog is not None
+    window._queue_dialog.close()
+
+
+def test_open_storage_dialog_warns_without_device(qapp, monkeypatch):
+    window = MainWindow(config=Config())
+    warnings = []
+    monkeypatch.setattr("podplex.ui.main_window.QMessageBox.warning", lambda *a, **k: warnings.append(a))
+    window.open_storage_dialog()
+    assert len(warnings) == 1
+
+
+def test_open_storage_dialog_creates_dialog_when_device_set(qapp, tmp_path):
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window.open_storage_dialog()
+    assert window._storage_dialog is not None
+    window._storage_dialog.close()

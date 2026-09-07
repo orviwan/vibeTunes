@@ -66,6 +66,31 @@ def test_delete_selected_album_removes_files_and_refreshes_status(qapp, tmp_path
     assert window.album_status_label.text() == "Not on iPod"
 
 
+def test_album_selection_loads_cover_art_when_available(qapp, tmp_path, monkeypatch):
+    track = PlexTrack(
+        key="k", title="Song", artist="Art", album="Alb", track_number=1,
+        year=2000, disc_number=1, duration_ms=1, file_path="/d/Song.flac", size_bytes=8,
+    )
+    album_dir = tmp_path / "Music" / "Art" / "Art-2000-Alb" / "CD 01"
+    album_dir.mkdir(parents=True)
+    (album_dir / "01 Song.flac").write_bytes(b"12345678")
+
+    window = MainWindow(config=Config())
+    monkeypatch.setattr(window.thumbnail_cache, "get_or_extract", lambda p: b"fake-art-bytes")
+    _select_fake_album(window, tmp_path, track)
+    assert window._last_cover_bytes == b"fake-art-bytes"
+
+
+def test_album_selection_clears_cover_art_when_not_on_device(qapp, tmp_path):
+    track = PlexTrack(
+        key="k", title="Song", artist="Art", album="Alb", track_number=1,
+        year=2000, disc_number=1, duration_ms=1, file_path="/d/Song.flac", size_bytes=8,
+    )
+    window = MainWindow(config=Config())
+    _select_fake_album(window, tmp_path, track)
+    assert window._last_cover_bytes is None
+
+
 def test_open_queue_dialog_creates_dialog(qapp):
     window = MainWindow(config=Config())
     window.open_queue_dialog()

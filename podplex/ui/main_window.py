@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from podplex.core.artwork import ThumbnailCache
 from podplex.core.config import Config
 from podplex.core.device import find_device
 from podplex.core.downloader import HttpDownloader
@@ -103,9 +105,12 @@ class MainWindow(QMainWindow):
         root.addLayout(lists)
 
         status_row = QHBoxLayout()
+        self.cover_label = QLabel("")
+        self.cover_label.setFixedSize(64, 64)
         self.album_status_label = QLabel("")
         delete_btn = QPushButton("Delete from iPod")
         delete_btn.clicked.connect(self.delete_selected_album)
+        status_row.addWidget(self.cover_label)
         status_row.addWidget(self.album_status_label)
         status_row.addWidget(delete_btn)
         root.addLayout(status_row)
@@ -125,6 +130,8 @@ class MainWindow(QMainWindow):
         self._current_album_tracks: list = []
         self._queue_dialog: QueueDialog | None = None
         self._storage_dialog: StorageDialog | None = None
+        self.thumbnail_cache = ThumbnailCache()
+        self._last_cover_bytes: bytes | None = None
 
     def detect_device(self) -> None:
         device = find_device(mount_override=self.config.ipod_mount_override)
@@ -179,9 +186,27 @@ class MainWindow(QMainWindow):
     def _refresh_album_status(self) -> None:
         if not self._current_album_tracks or self.device_mount_path is None:
             self.album_status_label.setText("")
+            self._update_cover_preview(None)
             return
         status = check_album_status(self.device_mount_path, self.config.naming_pattern, self._current_album_tracks)
         self.album_status_label.setText(status_label(status))
+        synced = next((t for t in status.tracks if t.on_device), None)
+        if synced is not None:
+            self._update_cover_preview(self.thumbnail_cache.get_or_extract(synced.dest_path))
+        else:
+            self._update_cover_preview(None)
+
+    def _update_cover_preview(self, data: bytes | None) -> None:
+        self._last_cover_bytes = data
+        if not data:
+            self.cover_label.clear()
+            return
+        pixmap = QPixmap()
+        pixmap.loadFromData(data)
+        if not pixmap.isNull():
+            self.cover_label.setPixmap(pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            self.cover_label.clear()
 
     def delete_selected_album(self) -> None:
         if not self._current_album_tracks or self.device_mount_path is None:

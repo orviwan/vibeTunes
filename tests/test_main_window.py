@@ -91,6 +91,83 @@ def test_album_selection_clears_cover_art_when_not_on_device(qapp, tmp_path):
     assert window._last_cover_bytes is None
 
 
+class FakePlaylist:
+    def __init__(self, title):
+        self.title = title
+
+
+class FakePlexClientForPlaylists:
+    def __init__(self, playlists, tracks):
+        self._playlists = playlists
+        self._tracks = tracks
+
+    def playlists(self):
+        return self._playlists
+
+    def tracks_for_playlist(self, playlist):
+        return self._tracks
+
+    def download_url(self, track):
+        return f"http://fake{track.file_path}"
+
+
+def test_load_playlists_populates_list(qapp):
+    window = MainWindow(config=Config())
+    window.plex_client = FakePlexClientForPlaylists([FakePlaylist("Road Trip")], [])
+    window.load_playlists()
+    assert window.playlist_list.count() == 1
+    assert window.playlist_list.item(0).text() == "Road Trip"
+
+
+def test_on_playlist_selected_lists_tracks(qapp):
+    track = PlexTrack(
+        key="k", title="Song", artist="Art", album="Alb", track_number=1,
+        year=2000, disc_number=1, duration_ms=1, file_path="/d/Song.flac", size_bytes=8,
+    )
+    window = MainWindow(config=Config())
+    window.plex_client = FakePlexClientForPlaylists([FakePlaylist("Road Trip")], [track])
+    window.load_playlists()
+    window.playlist_list.setCurrentRow(0)
+    assert window.playlist_track_list.count() == 1
+    assert window.playlist_track_list.item(0).text() == "Art - Song"
+
+
+def test_sync_selected_playlist_writes_m3u8_and_queues_missing_tracks(qapp, tmp_path):
+    track = PlexTrack(
+        key="k", title="Song", artist="Art", album="Alb", track_number=1,
+        year=2000, disc_number=1, duration_ms=1, file_path="/d/Song.flac", size_bytes=8,
+    )
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window.plex_client = FakePlexClientForPlaylists([FakePlaylist("Road Trip")], [track])
+    window.load_playlists()
+    window.playlist_list.setCurrentRow(0)
+    window.sync_selected_playlist()
+    out_path = tmp_path / "Playlists" / "Road Trip.m3u8"
+    assert out_path.exists()
+    assert "queued for download" in window.playlist_status_label.text()
+    window.engine.cancel_all()
+
+
+def test_sync_selected_playlist_reuses_existing_track(qapp, tmp_path):
+    track = PlexTrack(
+        key="k", title="Song", artist="Art", album="Alb", track_number=1,
+        year=2000, disc_number=1, duration_ms=1, file_path="/d/Song.flac", size_bytes=8,
+    )
+    existing_dir = tmp_path / "Music" / "Art" / "Alb"
+    existing_dir.mkdir(parents=True)
+    (existing_dir / "01 Song.flac").write_bytes(b"12345678")
+
+    window = MainWindow(config=Config())
+    window.device_mount_path = tmp_path
+    window.plex_client = FakePlexClientForPlaylists([FakePlaylist("Road Trip")], [track])
+    window.load_playlists()
+    window.playlist_list.setCurrentRow(0)
+    window.sync_selected_playlist()
+    assert "all tracks already on iPod" in window.playlist_status_label.text()
+    assert window.engine.pending_tasks() == []
+
+
 def test_open_queue_dialog_creates_dialog(qapp):
     window = MainWindow(config=Config())
     window.open_queue_dialog()

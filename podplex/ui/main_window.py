@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -25,9 +26,10 @@ from podplex.core.artwork import ThumbnailCache
 from podplex.core.config import Config
 from podplex.core.device import find_device
 from podplex.core.downloader import HttpDownloader
-from podplex.core.library_index import check_album_status, delete_album, status_label
+from podplex.core.library_index import check_album_status, delete_album, scan_music_tree, status_label
 from podplex.core.plex_client import PlexClient
-from podplex.core.sync_engine import SyncEngine
+from podplex.core.playlist import resolve_playlist_tracks, write_m3u8
+from podplex.core.sync_engine import SyncEngine, SyncTask
 from podplex.core.sync_task_builder import build_album_sync_task
 from podplex.ui.queue_dialog import QueueDialog
 from podplex.ui.storage_dialog import StorageDialog
@@ -95,6 +97,12 @@ class MainWindow(QMainWindow):
         header.addWidget(settings_btn)
         root.addLayout(header)
 
+        self.tabs = QTabWidget()
+        root.addWidget(self.tabs)
+
+        library_tab = QWidget()
+        library_layout = QVBoxLayout(library_tab)
+
         lists = QHBoxLayout()
         self.artist_list = QListWidget()
         self.artist_list.itemSelectionChanged.connect(self.on_artist_selected)
@@ -102,7 +110,7 @@ class MainWindow(QMainWindow):
         self.album_list.itemSelectionChanged.connect(self.on_album_selected)
         lists.addWidget(self.artist_list)
         lists.addWidget(self.album_list)
-        root.addLayout(lists)
+        library_layout.addLayout(lists)
 
         status_row = QHBoxLayout()
         self.cover_label = QLabel("")
@@ -113,7 +121,7 @@ class MainWindow(QMainWindow):
         status_row.addWidget(self.cover_label)
         status_row.addWidget(self.album_status_label)
         status_row.addWidget(delete_btn)
-        root.addLayout(status_row)
+        library_layout.addLayout(status_row)
 
         sync_row = QHBoxLayout()
         sync_btn = QPushButton("Sync Album to iPod")
@@ -123,10 +131,40 @@ class MainWindow(QMainWindow):
         sync_row.addWidget(sync_btn)
         sync_row.addWidget(self.progress_bar)
         sync_row.addWidget(self.status_label)
-        root.addLayout(sync_row)
+        library_layout.addLayout(sync_row)
+
+        self.tabs.addTab(library_tab, "Library")
+
+        playlists_tab = QWidget()
+        playlists_layout = QVBoxLayout(playlists_tab)
+
+        pl_header = QHBoxLayout()
+        load_playlists_btn = QPushButton("Load Playlists")
+        load_playlists_btn.clicked.connect(self.load_playlists)
+        pl_header.addWidget(load_playlists_btn)
+        playlists_layout.addLayout(pl_header)
+
+        pl_lists = QHBoxLayout()
+        self.playlist_list = QListWidget()
+        self.playlist_list.itemSelectionChanged.connect(self.on_playlist_selected)
+        self.playlist_track_list = QListWidget()
+        pl_lists.addWidget(self.playlist_list)
+        pl_lists.addWidget(self.playlist_track_list)
+        playlists_layout.addLayout(pl_lists)
+
+        pl_sync_row = QHBoxLayout()
+        sync_playlist_btn = QPushButton("Sync to iPod")
+        sync_playlist_btn.clicked.connect(self.sync_selected_playlist)
+        self.playlist_status_label = QLabel("")
+        pl_sync_row.addWidget(sync_playlist_btn)
+        pl_sync_row.addWidget(self.playlist_status_label)
+        playlists_layout.addLayout(pl_sync_row)
+
+        self.tabs.addTab(playlists_tab, "Playlists")
 
         self._artists_by_name = {}
         self._albums_by_name = {}
+        self._playlists_by_name = {}
         self._current_album_tracks: list = []
         self._queue_dialog: QueueDialog | None = None
         self._storage_dialog: StorageDialog | None = None
@@ -252,3 +290,44 @@ class MainWindow(QMainWindow):
             return
         self._storage_dialog = StorageDialog(self.device_mount_path, self)
         self._storage_dialog.show()
+
+    def load_playlists(self) -> None:
+        if self.plex_client is None:
+            QMessageBox.warning(self, "PodPlex", "Load your Plex library first (Settings, then Load Library).")
+            return
+        self.playlist_list.clear()
+        self._playlists_by_name.clear()
+        for pl in self.plex_client.playlists():
+            self._playlists_by_name[pl.title] = pl
+            self.playlist_list.addItem(pl.title)
+
+    def on_playlist_selected(self) -> None:
+        items = self.playlist_list.selectedItems()
+        self.playlist_track_list.clear()
+        if not items or self.plex_client is None:
+            return
+        playlist = self._playlists_by_name[items[0].text()]
+        for t in self.plex_client.tracks_for_playlist(playlist):
+            self.playlist_track_list.addItem(f"{t.artist} - {t.title}")
+
+    def sync_selected_playlist(self) -> None:
+        items = self.playlist_list.selectedItems()
+        if not items or self.plex_client is None or self.device_mount_path is None:
+            QMessageBox.warning(self, "PodPlex", "Select a playlist and detect your iPod first.")
+            return
+        name = items[0].text()
+        playlist = self._playlists_by_name[name]
+        tracks = self.plex_client.tracks_for_playlist(playlist)
+        candidates = scan_music_tree(self.device_mount_path)
+        resolved_paths, to_download = resolve_playlist_tracks(
+            tracks, candidates, self.plex_client, self.device_mount_path, self.config.naming_pattern
+        )
+        out_path = write_m3u8(name, self.device_mount_path, resolved_paths)
+        if to_download:
+            task = SyncTask(name=f"Playlist: {name}", tracks=to_download, task_id=str(uuid.uuid4()))
+            self.engine.enqueue(task)
+            self.playlist_status_label.setText(
+                f"Playlist written to {out_path.name}; {len(to_download)} track(s) queued for download"
+            )
+        else:
+            self.playlist_status_label.setText(f"Playlist written to {out_path.name}; all tracks already on iPod")

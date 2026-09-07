@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import threading
 import uuid
+import webbrowser
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
@@ -27,7 +29,7 @@ from podplex.core.config import Config
 from podplex.core.device import device_node_for_mount, find_device, remount_read_write, safe_eject
 from podplex.core.downloader import HttpDownloader
 from podplex.core.library_index import check_album_status, delete_album, scan_music_tree, status_label
-from podplex.core.plex_client import PlexClient
+from podplex.core.plex_client import PlexClient, PlexOAuthLogin
 from podplex.core.playlist import delete_playlist, list_on_device_playlists, resolve_playlist_tracks, write_m3u8
 from podplex.core.sync_engine import SyncEngine, SyncTask
 from podplex.core.sync_task_builder import build_album_sync_task
@@ -36,11 +38,20 @@ from podplex.ui.storage_dialog import StorageDialog
 
 
 class SettingsDialog(QDialog):
+    oauth_token_received = Signal(str)
+
     def __init__(self, config: Config, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
         self.config = config
         layout = QFormLayout(self)
+
+        oauth_btn = QPushButton("🔑 Sign In with Plex Account")
+        oauth_btn.clicked.connect(self.start_oauth_login)
+        self.oauth_status_label = QLabel("")
+        layout.addRow(oauth_btn)
+        layout.addRow(self.oauth_status_label)
+
         self.url_edit = QLineEdit(config.plex_url)
         self.token_edit = QLineEdit(config.plex_token)
         self.library_edit = QLineEdit(config.plex_library_name)
@@ -51,6 +62,22 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+
+        self.oauth_token_received.connect(self._on_oauth_token, Qt.QueuedConnection)
+
+    def start_oauth_login(self) -> None:
+        login = PlexOAuthLogin()
+        self.oauth_status_label.setText(f"PIN: {login.pin} — opening browser at plex.tv/link...")
+        webbrowser.open(login.oauth_url)
+        thread = threading.Thread(target=self._run_oauth, args=(login,), daemon=True)
+        thread.start()
+
+    def _run_oauth(self, login: PlexOAuthLogin) -> None:
+        login.run(on_authorized=self.oauth_token_received.emit)
+
+    def _on_oauth_token(self, token: str) -> None:
+        self.token_edit.setText(token)
+        self.oauth_status_label.setText("Signed in! Token filled in below — pick your server URL and Save.")
 
     def updated_config(self) -> Config:
         self.config.plex_url = self.url_edit.text().strip()

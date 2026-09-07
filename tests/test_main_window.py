@@ -1,6 +1,6 @@
 from podplex.core.config import Config
 from podplex.core.plex_client import PlexTrack
-from podplex.ui.main_window import MainWindow
+from podplex.ui.main_window import MainWindow, SettingsDialog
 
 
 def test_main_window_constructs_with_no_device_detected(qapp):
@@ -166,6 +166,31 @@ def test_sync_selected_playlist_reuses_existing_track(qapp, tmp_path):
     window.sync_selected_playlist()
     assert "all tracks already on iPod" in window.playlist_status_label.text()
     assert window.engine.pending_tasks() == []
+
+
+def test_start_oauth_login_opens_browser_and_shows_pin(qapp, monkeypatch):
+    opened = []
+    monkeypatch.setattr("podplex.ui.main_window.webbrowser.open", lambda url: opened.append(url))
+
+    class FakeOAuthLogin:
+        pin = "WXYZ"
+        oauth_url = "https://plex.tv/link?pin=WXYZ"
+
+        def run(self, on_authorized):
+            pass
+
+    monkeypatch.setattr("podplex.ui.main_window.PlexOAuthLogin", FakeOAuthLogin)
+    dialog = SettingsDialog(Config())
+    dialog.start_oauth_login()
+    assert opened == ["https://plex.tv/link?pin=WXYZ"]
+    assert "WXYZ" in dialog.oauth_status_label.text()
+
+
+def test_oauth_token_received_fills_token_field(qapp):
+    dialog = SettingsDialog(Config())
+    dialog._on_oauth_token("secret-token")
+    assert dialog.token_edit.text() == "secret-token"
+    assert "Signed in" in dialog.oauth_status_label.text()
 
 
 def test_eject_device_resets_state(qapp, tmp_path, monkeypatch):

@@ -58,6 +58,7 @@ class PlexBrowserWidget(QWidget):
     remove_album_requested = Signal(str, str)  # artist_name, album_title
     remove_artist_requested = Signal(str)      # artist_name
     rescan_ipod_requested = Signal()
+    refresh_requested = Signal()
     clean_trash_requested = Signal()
 
     def __init__(self, plex: PlexManager, parent=None):
@@ -127,24 +128,9 @@ class PlexBrowserWidget(QWidget):
         top_bar.addWidget(self.filter_ipod_btn)
         top_bar.addWidget(self.filter_missing_btn)
 
-        self.rescan_ipod_btn = QPushButton("Rescan iPod")
-        self.rescan_ipod_btn.setToolTip("Rescan iPod filesystem for changes")
-        self.rescan_ipod_btn.clicked.connect(self.rescan_ipod_requested.emit)
-        top_bar.addWidget(self.rescan_ipod_btn)
-
-        self.align_names_btn = QPushButton("Align with Plex")
-        self.align_names_btn.setToolTip("Rename iPod folders and files in-place to match Plex naming conventions (zero deletions)")
-        self.align_names_btn.clicked.connect(self._on_align_names_clicked)
-        self.align_names_btn.setEnabled(False)
-        top_bar.addWidget(self.align_names_btn)
-
-        self.clean_trash_btn = QPushButton("Clean Trash")
-        self.clean_trash_btn.setToolTip("Empty .Trash-1000 folder on iPod")
-        self.clean_trash_btn.clicked.connect(self._on_clean_trash_clicked)
-        top_bar.addWidget(self.clean_trash_btn)
-
-        self.refresh_btn = QPushButton("Refresh Plex")
-        self.refresh_btn.clicked.connect(self.reload_library)
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setToolTip("Refresh Plex library and iPod content")
+        self.refresh_btn.clicked.connect(self.refresh_requested.emit)
         top_bar.addWidget(self.refresh_btn)
 
         main_layout.addLayout(top_bar)
@@ -385,16 +371,6 @@ class PlexBrowserWidget(QWidget):
 
     def set_ipod_mount(self, mount_point: str):
         self.ipod_mount = mount_point
-        self.align_names_btn.setEnabled(bool(mount_point))
-
-    def _on_align_names_clicked(self):
-        if not self.ipod_mount:
-            QMessageBox.warning(self, "No iPod Detected", "Please connect an iPod first to align folder naming.")
-            return
-        from vibetunes.ui.widgets.naming_sync_dialog import NamingSyncDialog
-        dialog = NamingSyncDialog(self.ipod_mount, self.plex, self.current_library, self)
-        dialog.alignment_completed.connect(lambda cnt: self.rescan_ipod_requested.emit())
-        dialog.exec()
 
     def _is_track_on_ipod(self, track: PlexTrackDetail) -> bool:
         if not self.selected_album:

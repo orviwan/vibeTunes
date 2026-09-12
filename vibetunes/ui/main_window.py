@@ -96,13 +96,14 @@ class MainWindow(QMainWindow):
         self.plex_browser.sync_artist_requested.connect(self._on_sync_artist_requested)
         self.plex_browser.remove_album_requested.connect(self._on_remove_album_requested)
         self.plex_browser.remove_artist_requested.connect(self._on_remove_artist_requested)
-        self.plex_browser.rescan_ipod_requested.connect(self._start_ipod_scan)
-        self.plex_browser.clean_trash_requested.connect(self._on_clean_trash_requested)
+        self.plex_browser.rescan_ipod_requested.connect(self.refresh_all)
+        self.plex_browser.refresh_requested.connect(self.refresh_all)
         self.tabs.addTab(self.plex_browser, "Music Library")
 
         # Playlists Tab (Plex & iPod)
         self.playlist_browser = PlaylistBrowserWidget(self.plex)
         self.playlist_browser.sync_playlist_requested.connect(self._on_sync_playlist_requested)
+        self.playlist_browser.refresh_requested.connect(self.refresh_all)
         self.tabs.addTab(self.playlist_browser, "Playlists")
 
         main_layout.addWidget(self.tabs, stretch=1)
@@ -241,6 +242,14 @@ class MainWindow(QMainWindow):
         self._storage_scan_thread = threading.Thread(target=worker, daemon=True)
         self._storage_scan_thread.start()
 
+    def refresh_all(self):
+        self.statusBar().showMessage("Refreshing Plex catalog and iPod content...")
+        if not self.is_demo_mode:
+            self.plex_browser.reload_library()
+        self.playlist_browser.reload_all()
+        self._start_ipod_scan()
+        self._refresh_storage()
+
     def _start_ipod_scan(self):
         if not self.device or not self.device.mount_point:
             return
@@ -249,6 +258,17 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Scanning iPod music library...")
         mount = self.device.mount_point
         def worker():
+            if not self.is_demo_mode:
+                try:
+                    from vibetunes.core.naming_sync import inspect_ipod_naming_alignment, apply_naming_alignment, repair_ipod_playlists
+                    repair_ipod_playlists(Path(mount))
+                    if self.plex.is_connected() and self.config.naming_pattern == "plex_exact":
+                        proposals = inspect_ipod_naming_alignment(Path(mount), self.plex, self.config.plex_library)
+                        if proposals:
+                            apply_naming_alignment(proposals, ipod_mount=Path(mount))
+                except Exception as e:
+                    print(f"Auto-alignment background notice: {e}")
+
             artists = scan_ipod_music(mount)
             try:
                 self.worker_signals.ipod_scan_finished.emit(artists)
@@ -261,6 +281,7 @@ class MainWindow(QMainWindow):
     def _on_ipod_scan_finished(self, artists: List[iPodArtist]):
         self.ipod_artists = artists
         self._sync_ipod_album_badges()
+        self.playlist_browser.reload_ipod_playlists()
         if self.analyzer_dialog:
             self.analyzer_dialog.update_data(self.ipod_artists)
         self.statusBar().showMessage(f"iPod library: {len(artists)} artist(s) on device.")

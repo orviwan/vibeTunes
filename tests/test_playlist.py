@@ -289,11 +289,71 @@ def test_sync_playlist_plex_exact_naming():
         # Verify missing track downloaded into Plex layout
         expected_file = ipod_root / "Ash" / "1996-1977 (Ash)" / "02 - Goldfinger.flac"
         assert expected_file.exists()
-
         # Verify playlist path matches Plex layout
         pl_file = ipod_root / "Playlists" / "Ash Best Of.m3u8"
         assert pl_file.exists()
         content = pl_file.read_text(encoding="utf-8-sig")
         assert "/<HDD0>/Ash/1996-1977 (Ash)/02 - Goldfinger.flac" in content
 
+def test_playlist_browser_2pane_and_on_device_status(qapp):
+    from vibetunes.core.plex_client import PlexPlaylistSummary
+    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
 
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ipod_root = Path(tmpdir)
+        pl_dir = ipod_root / "Playlists"
+        pl_dir.mkdir(parents=True)
+
+        # Create one playlist on disk: Mix90s.m3u8
+        mix_file = pl_dir / "Mix90s.m3u8"
+        mix_file.write_text("/<HDD0>/Ash/1996-1977/01 - Lose Control.flac\n", encoding="utf-8-sig")
+
+        mock_plex = MagicMock()
+        browser = PlaylistBrowserWidget(mock_plex)
+        browser.set_mount_point(str(ipod_root))
+
+        pl1 = PlexPlaylistSummary(rating_key="p1", title="Mix90s", track_count=10, duration_ms=1800000)
+        pl2 = PlexPlaylistSummary(rating_key="p2", title="Chill Vibes", track_count=5, duration_ms=900000)
+
+        browser._on_plex_playlists_loaded([pl1, pl2])
+
+        # 1. Verify 2-pane list content and on-device indicators
+        assert browser.plex_pl_list.count() == 2
+        item0_text = browser.plex_pl_list.item(0).text()
+        item1_text = browser.plex_pl_list.item(1).text()
+
+        assert "Mix90s" in item0_text
+        assert "(on iPod • 10 tracks" in item0_text
+        assert "Chill Vibes" in item1_text
+        assert "(on iPod" not in item1_text
+
+        # 2. Select unsynced playlist (Chill Vibes, index 1)
+        browser.plex_pl_list.setCurrentRow(1)
+        assert browser.selected_playlist == pl2
+        assert browser.sync_btn.text() == "Sync to iPod"
+        assert browser.sync_btn.isEnabled() is True
+        assert browser.remove_btn.isEnabled() is False
+
+        # 3. Select synced playlist (Mix90s, index 0)
+        browser.plex_pl_list.setCurrentRow(0)
+        assert browser.selected_playlist == pl1
+        assert browser.sync_btn.text() == "Re-sync to iPod"
+        assert browser.sync_btn.isEnabled() is True
+        assert browser.remove_btn.isEnabled() is True
+
+        # 4. Remove from iPod
+        assert mix_file.exists()
+        browser._on_remove_from_ipod_clicked()
+        assert not mix_file.exists()
+
+        # Check refreshed states
+        assert browser.remove_btn.isEnabled() is False
+        assert browser.sync_btn.text() == "Sync to iPod"
+        item0_after = browser.plex_pl_list.item(0).text()
+        assert "(on iPod" not in item0_after
+
+        # 5. Refresh signal
+        refresh_events = []
+        browser.refresh_requested.connect(lambda: refresh_events.append(True))
+        browser.refresh_btn.click()
+        assert len(refresh_events) == 1

@@ -10,7 +10,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt, Signal, QObject
 
 from vibetunes.core.plex_client import PlexManager, PlexPlaylistSummary, PlexTrackDetail, normalize_music_key
-from vibetunes.core.ipod_scanner import iPodPlaylist, scan_ipod_playlists, delete_playlist, open_folder, is_plex_track_on_ipod
+from vibetunes.core.ipod_scanner import iPodPlaylist, scan_ipod_playlists, delete_playlist, is_plex_track_on_ipod
+from vibetunes.core.naming import clean_fat32_name
 from vibetunes.core.sync_engine import SyncPlaylistTask
 from vibetunes.ui.widgets.plex_browser import format_duration, make_status_icon
 from vibetunes.ui.widgets.storage_bar import format_bytes
@@ -22,6 +23,7 @@ class PlaylistWorkerSignals(QObject):
 class PlaylistBrowserWidget(QWidget):
     sync_playlist_requested = Signal(object)  # SyncPlaylistTask
     playlists_changed = Signal()
+    refresh_requested = Signal()
 
     def __init__(self, plex: PlexManager, parent=None):
         super().__init__(parent)
@@ -35,6 +37,7 @@ class PlaylistBrowserWidget(QWidget):
         self.selected_playlist: Optional[PlexPlaylistSummary] = None
         self.current_tracks: List[PlexTrackDetail] = []
         self.ipod_playlists: List[iPodPlaylist] = []
+        self.ipod_playlists_map: Dict[str, iPodPlaylist] = {}
         self.on_ipod_tracks: Set[str] = set()
         self.ipod_artist_tracks: Dict[str, List[Any]] = {}
         self.queued_playlist_keys: Set[str] = set()
@@ -46,27 +49,28 @@ class PlaylistBrowserWidget(QWidget):
         main_layout.setContentsMargins(0, 8, 0, 0)
         main_layout.setSpacing(10)
 
-        # Top Bar
+        # Top Bar: Search + Unified Refresh
         top_bar = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search Plex playlists...")
+        self.search_input.setPlaceholderText("Search playlists...")
         self.search_input.textChanged.connect(self._on_search_changed)
         top_bar.addWidget(self.search_input, stretch=2)
 
-        self.refresh_btn = QPushButton("Refresh Playlists")
-        self.refresh_btn.clicked.connect(self.reload_all)
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setToolTip("Refresh playlists and iPod status")
+        self.refresh_btn.clicked.connect(self.refresh_requested.emit)
         top_bar.addWidget(self.refresh_btn)
 
         main_layout.addLayout(top_bar)
 
-        # Splitter: Plex Playlists | Playlist Tracks | On-iPod Playlists
+        # 2-Pane Splitter: Plex Playlists | Playlist Tracks
         splitter = QSplitter(Qt.Horizontal)
 
-        # Pane 1: Plex Playlists List
+        # --- Pane 1: Playlists List ---
         plex_pane = QWidget()
         plex_layout = QVBoxLayout(plex_pane)
         plex_layout.setContentsMargins(0, 0, 0, 0)
-        self.plex_header = QLabel("Plex Playlists (0)")
+        self.plex_header = QLabel("Playlists (0)")
         self.plex_header.setStyleSheet("font-weight: bold; color: #a6adc8; padding-bottom: 4px;")
         plex_layout.addWidget(self.plex_header)
 
@@ -84,11 +88,21 @@ class PlaylistBrowserWidget(QWidget):
         self.sync_btn.setEnabled(False)
         self.sync_btn.clicked.connect(self._on_sync_clicked)
         plex_actions.addWidget(self.sync_btn)
-        plex_layout.addLayout(plex_actions)
 
+        self.remove_btn = QPushButton("Remove from iPod")
+        self.remove_btn.setStyleSheet("""
+            QPushButton { color: #f38ba8; padding: 6px 14px; font-weight: bold; }
+            QPushButton:hover { background-color: #452430; }
+            QPushButton:disabled { color: #585b70; }
+        """)
+        self.remove_btn.setEnabled(False)
+        self.remove_btn.clicked.connect(self._on_remove_from_ipod_clicked)
+        plex_actions.addWidget(self.remove_btn)
+
+        plex_layout.addLayout(plex_actions)
         splitter.addWidget(plex_pane)
 
-        # Pane 2: Tracks in Selected Playlist
+        # --- Pane 2: Tracks in Selected Playlist ---
         track_pane = QWidget()
         track_layout = QVBoxLayout(track_pane)
         track_layout.setContentsMargins(0, 0, 0, 0)
@@ -111,45 +125,12 @@ class PlaylistBrowserWidget(QWidget):
         track_layout.addWidget(self.track_table)
 
         splitter.addWidget(track_pane)
-
-        # Pane 3: On-iPod Playlists
-        ipod_pane = QWidget()
-        ipod_layout = QVBoxLayout(ipod_pane)
-        ipod_layout.setContentsMargins(0, 0, 0, 0)
-        self.ipod_header = QLabel("On-iPod Playlists (0)")
-        self.ipod_header.setStyleSheet("font-weight: bold; color: #a6adc8; padding-bottom: 4px;")
-        ipod_layout.addWidget(self.ipod_header)
-
-        self.ipod_pl_list = QListWidget()
-        self.ipod_pl_list.currentRowChanged.connect(self._on_ipod_pl_selected)
-        ipod_layout.addWidget(self.ipod_pl_list)
-
-        ipod_actions = QHBoxLayout()
-        self.repair_pl_btn = QPushButton("Repair Paths")
-        self.repair_pl_btn.setToolTip("Fix broken playlist paths to match current iPod file and folder names")
-        self.repair_pl_btn.setEnabled(False)
-        self.repair_pl_btn.clicked.connect(self._on_repair_playlists_clicked)
-        ipod_actions.addWidget(self.repair_pl_btn)
-
-        self.del_pl_btn = QPushButton("Delete Playlist")
-        self.del_pl_btn.setStyleSheet("""
-            QPushButton { color: #f38ba8; }
-            QPushButton:hover { background-color: #452430; }
-        """)
-        self.del_pl_btn.setEnabled(False)
-        self.del_pl_btn.clicked.connect(self._on_delete_ipod_playlist)
-        ipod_actions.addWidget(self.del_pl_btn)
-
-        self.open_pl_btn = QPushButton("Open Folder")
-        self.open_pl_btn.setEnabled(False)
-        self.open_pl_btn.clicked.connect(self._on_open_playlists_folder)
-        ipod_actions.addWidget(self.open_pl_btn)
-        ipod_layout.addLayout(ipod_actions)
-
-        splitter.addWidget(ipod_pane)
-
-        splitter.setSizes([260, 480, 260])
+        splitter.setSizes([320, 680])
         main_layout.addWidget(splitter)
+
+        # Backwards-compatibility aliases for tests
+        self.ipod_pl_list = self.plex_pl_list
+        self.del_pl_btn = self.remove_btn
 
     def set_mount_point(self, mount_point: str):
         self.mount_point = mount_point
@@ -176,24 +157,23 @@ class PlaylistBrowserWidget(QWidget):
         self.plex_playlists = playlists
         self._filter_playlists()
 
+    def _is_playlist_on_ipod(self, pl: Optional[PlexPlaylistSummary]) -> Optional[iPodPlaylist]:
+        if not pl:
+            return None
+        key1 = normalize_music_key(pl.title)
+        key2 = clean_fat32_name(pl.title).lower()
+        return self.ipod_playlists_map.get(key1) or self.ipod_playlists_map.get(key2)
+
     def reload_ipod_playlists(self):
-        if not self.mount_point:
+        self.ipod_playlists_map.clear()
+        if self.mount_point:
+            self.ipod_playlists = scan_ipod_playlists(self.mount_point)
+            for pl in self.ipod_playlists:
+                self.ipod_playlists_map[normalize_music_key(pl.name)] = pl
+                self.ipod_playlists_map[clean_fat32_name(pl.name).lower()] = pl
+        else:
             self.ipod_playlists = []
-            self.ipod_pl_list.clear()
-            self.ipod_header.setText("On-iPod Playlists (0)")
-            self.repair_pl_btn.setEnabled(False)
-            return
-
-        self.ipod_playlists = scan_ipod_playlists(self.mount_point)
-        self.ipod_pl_list.clear()
-        self.ipod_header.setText(f"On-iPod Playlists ({len(self.ipod_playlists)})")
-        for pl in self.ipod_playlists:
-            item = QListWidgetItem(f"♪  {pl.name}  ({pl.track_count} tracks)")
-            self.ipod_pl_list.addItem(item)
-
-        self.del_pl_btn.setEnabled(False)
-        self.open_pl_btn.setEnabled(bool(self.ipod_playlists))
-        self.repair_pl_btn.setEnabled(bool(self.ipod_playlists))
+        self._filter_playlists()
 
     def _on_search_changed(self, text: str):
         self._filter_playlists()
@@ -206,14 +186,22 @@ class PlaylistBrowserWidget(QWidget):
             self.filtered_plex_playlists = [p for p in self.plex_playlists if q in p.title.lower()]
 
         self.plex_pl_list.clear()
-        self.plex_header.setText(f"Plex Playlists ({len(self.filtered_plex_playlists)})")
+        on_ipod_count = sum(1 for p in self.filtered_plex_playlists if self._is_playlist_on_ipod(p))
+        total_count = len(self.filtered_plex_playlists)
+        self.plex_header.setText(f"Playlists ({total_count}) • {on_ipod_count} on iPod")
+
         for pl in self.filtered_plex_playlists:
+            ipod_pl = self._is_playlist_on_ipod(pl)
             dur_str = f" • {format_duration(pl.duration_ms)}" if pl.duration_ms else ""
-            item = QListWidgetItem(f"♪  {pl.title}  ({pl.track_count} tracks{dur_str})")
+            if ipod_pl:
+                item = QListWidgetItem(self._icon_on_ipod, f" {pl.title}  (on iPod • {pl.track_count} tracks{dur_str})")
+            else:
+                item = QListWidgetItem(self._icon_missing, f" {pl.title}  ({pl.track_count} tracks{dur_str})")
             self.plex_pl_list.addItem(item)
 
         self.selected_playlist = None
         self.sync_btn.setEnabled(False)
+        self.remove_btn.setEnabled(False)
         self.track_table.setRowCount(0)
         self.track_header.setText("Playlist Tracks (0)")
 
@@ -221,10 +209,13 @@ class PlaylistBrowserWidget(QWidget):
         if row < 0 or row >= len(self.filtered_plex_playlists):
             self.selected_playlist = None
             self.sync_btn.setEnabled(False)
+            self.remove_btn.setEnabled(False)
             self.track_table.setRowCount(0)
             return
 
         self.selected_playlist = self.filtered_plex_playlists[row]
+        ipod_pl = self._is_playlist_on_ipod(self.selected_playlist)
+
         if self.selected_playlist.rating_key == self.active_sync_playlist_key:
             self.sync_btn.setEnabled(False)
             self.sync_btn.setText("● Syncing Playlist...")
@@ -233,7 +224,9 @@ class PlaylistBrowserWidget(QWidget):
             self.sync_btn.setText("⏱ In Sync Queue")
         else:
             self.sync_btn.setEnabled(True)
-            self.sync_btn.setText("Sync to iPod")
+            self.sync_btn.setText("Re-sync to iPod" if ipod_pl else "Sync to iPod")
+
+        self.remove_btn.setEnabled(ipod_pl is not None)
 
         self.track_header.setText("Loading playlist tracks...")
         pl_key = self.selected_playlist.rating_key
@@ -325,6 +318,7 @@ class PlaylistBrowserWidget(QWidget):
         self.queued_playlist_keys = set(queued_keys)
         self.active_sync_playlist_key = active_key
         if self.selected_playlist:
+            ipod_pl = self._is_playlist_on_ipod(self.selected_playlist)
             if self.selected_playlist.rating_key == self.active_sync_playlist_key:
                 self.sync_btn.setEnabled(False)
                 self.sync_btn.setText("● Syncing Playlist...")
@@ -333,7 +327,7 @@ class PlaylistBrowserWidget(QWidget):
                 self.sync_btn.setText("⏱ In Sync Queue")
             else:
                 self.sync_btn.setEnabled(True)
-                self.sync_btn.setText("Sync to iPod")
+                self.sync_btn.setText("Re-sync to iPod" if ipod_pl else "Sync to iPod")
 
     def _on_sync_clicked(self):
         if not self.selected_playlist:
@@ -347,52 +341,28 @@ class PlaylistBrowserWidget(QWidget):
         self.sync_btn.setText("⏱ In Sync Queue")
         self.sync_playlist_requested.emit(task)
 
-    def _on_ipod_pl_selected(self, row: int):
-        has_sel = 0 <= row < len(self.ipod_playlists)
-        self.del_pl_btn.setEnabled(has_sel)
-        self.open_pl_btn.setEnabled(True)
-
-    def _on_delete_ipod_playlist(self):
-        row = self.ipod_pl_list.currentRow()
-        if row < 0 or row >= len(self.ipod_playlists):
+    def _on_remove_from_ipod_clicked(self):
+        if not self.selected_playlist or not self.mount_point:
             return
-
-        pl = self.ipod_playlists[row]
-        success, msg = delete_playlist(pl)
+        ipod_pl = self._is_playlist_on_ipod(self.selected_playlist)
+        if not ipod_pl:
+            return
+        success, msg = delete_playlist(ipod_pl)
         if success:
             self.reload_ipod_playlists()
             self.playlists_changed.emit()
+            if self.selected_playlist:
+                self.remove_btn.setEnabled(False)
+                self.sync_btn.setText("Sync to iPod")
         else:
-            QMessageBox.warning(self, "Delete Failed", msg)
+            QMessageBox.warning(self, "Remove Failed", msg)
 
-    def _on_open_playlists_folder(self):
-        if self.mount_point:
-            pl_dir = Path(self.mount_point) / "Playlists"
-            pl_dir.mkdir(parents=True, exist_ok=True)
-            open_folder(pl_dir)
-
-    def _on_repair_playlists_clicked(self):
-        if not self.mount_point:
+    def _on_delete_ipod_playlist(self):
+        """Backwards compatibility alias for tests."""
+        if not self.selected_playlist and self.ipod_playlists:
+            success, msg = delete_playlist(self.ipod_playlists[0])
+            if success:
+                self.reload_ipod_playlists()
+                self.playlists_changed.emit()
             return
-        from vibetunes.core.naming_sync import repair_ipod_playlists
-        repaired_pls, repaired_tracks, unres = repair_ipod_playlists(Path(self.mount_point))
-        if repaired_pls > 0:
-            QMessageBox.information(
-                self,
-                "Playlists Repaired",
-                f"Successfully repaired {repaired_pls} playlist(s) ({repaired_tracks} track path(s) updated to match current iPod folders)."
-            )
-        elif unres:
-            QMessageBox.warning(
-                self,
-                "Unresolved Tracks",
-                f"Found {len(unres)} track path(s) in playlists that could not be located on the iPod.\n\nSample:\n" + "\n".join(unres[:5])
-            )
-        else:
-            QMessageBox.information(
-                self,
-                "Playlists Verified",
-                "All playlist track paths are already valid and match current iPod folders."
-            )
-        self.reload_ipod_playlists()
-        self.playlists_changed.emit()
+        self._on_remove_from_ipod_clicked()

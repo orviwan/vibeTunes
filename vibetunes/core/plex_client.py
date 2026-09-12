@@ -24,17 +24,38 @@ def normalize_music_key(artist: str, album: str = "") -> str:
     """
     Normalizes artist and album strings for reliable matching across
     Plex metadata and filesystem folder names (removes diacritics, curly quotes,
-    punctuation, and excess whitespace).
+    punctuation, excess whitespace, and unifies '&' / '+' to 'and').
     """
     def clean(s: str) -> str:
+        if not s:
+            return ""
         s = unicodedata.normalize("NFKD", s).casefold()
         s = s.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
-        s = re.sub(r"[^\w\s]", "", s)
+        s = s.replace("'", "").replace('"', "")
+        s = re.sub(r"\s*&\s*", " and ", s)
+        s = re.sub(r"\s*\+\s*", " and ", s)
+        s = re.sub(r"[^\w\s]", " ", s)
         return re.sub(r"\s+", " ", s).strip()
 
     if album:
         return f"{clean(artist)}::{clean(album)}"
     return clean(artist)
+
+def extract_base_album_title(album_title: str) -> str:
+    """
+    Extracts the core album title stripped of disc numbers, deluxe/remaster editions,
+    parenthetical suffixes, and subtitles after colons/dashes.
+    E.g. 'Slanted & Enchanted: Luxe & Reduxe' -> 'Slanted & Enchanted'
+    """
+    if not album_title:
+        return ""
+    # Strip disc/CD suffixes first e.g. (Disc 1), CD 1
+    s = re.sub(r"\s*(?:[\(\[-]\s*)?(?:cd|disc)\s*\d+[\)\]]?\s*$", "", album_title, flags=re.IGNORECASE).strip()
+    # Split by colon, dash, parenthesis, bracket if there's a preceding title
+    parts = re.split(r"\s*[:\(\[]\s*", s)
+    if parts and len(parts[0].strip()) >= 2:
+        return parts[0].strip()
+    return s
 
 @dataclass
 class PlexArtistSummary:

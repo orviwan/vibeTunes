@@ -424,6 +424,50 @@ class SyncWorker(QObject):
         artist_clean = clean_fat32_name(task.artist_name)
         album_clean = clean_fat32_name(task.album_title)
 
+        # Check if an album folder for this album already exists under artist directory
+        from vibetunes.core.ipod_scanner import parse_album_folder_name
+        from vibetunes.core.plex_client import extract_base_album_title
+        norm_art = normalize_music_key(task.artist_name)
+        norm_alb = normalize_music_key(task.album_title)
+        base_alb = normalize_music_key(extract_base_album_title(task.album_title))
+
+        artist_candidates = [self.ipod_mount / artist_clean]
+        try:
+            for entry in self.ipod_mount.iterdir():
+                if entry.is_dir() and normalize_music_key(entry.name) == norm_art and entry not in artist_candidates:
+                    artist_candidates.append(entry)
+        except Exception:
+            pass
+
+        for ad in artist_candidates:
+            if not ad.is_dir():
+                continue
+            try:
+                for d in ad.iterdir():
+                    if not d.is_dir():
+                        continue
+                    # Check if this directory already has audio files
+                    has_audio = any(
+                        f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
+                        for f in d.rglob("*")
+                    )
+                    if not has_audio:
+                        continue
+                    clean_title, _ = parse_album_folder_name(d.name, task.artist_name)
+                    d_norm = normalize_music_key(clean_title)
+                    d_raw_norm = normalize_music_key(d.name)
+                    if (
+                        d_norm == norm_alb
+                        or norm_alb in d_norm
+                        or d_norm in norm_alb
+                        or norm_alb in d_raw_norm
+                        or d_raw_norm in norm_alb
+                        or (len(base_alb) >= 3 and (base_alb in d_norm or d_norm in base_alb))
+                    ):
+                        return d
+            except Exception:
+                pass
+
         if self.config.naming_pattern == "rockbox_disc":
             if task.year:
                 folder_name = f"{artist_clean}-{task.year}-{album_clean}"

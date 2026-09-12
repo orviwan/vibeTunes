@@ -11,7 +11,8 @@ from PySide6.QtGui import QPixmap, QIcon, QColor, QPainter, QPen
 from PySide6.QtCore import Qt, Signal, QObject, QSize
 
 from vibetunes.core.plex_client import (
-    PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
+    PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail,
+    normalize_music_key, extract_base_album_title
 )
 from vibetunes.core.sync_engine import SyncTask
 from vibetunes.core.image_cache import ThumbnailManager
@@ -408,12 +409,27 @@ class PlexBrowserWidget(QWidget):
         if not info:
             norm_art = normalize_music_key(artist_name)
             norm_alb = normalize_music_key(album_title)
+            base_alb = normalize_music_key(extract_base_album_title(album_title))
+            matched_infos = []
             for k, v in self.ipod_album_data.items():
                 if k.startswith(f"{norm_art}::"):
                     k_alb = k.split("::", 1)[1]
-                    if norm_alb in k_alb or k_alb in norm_alb:
-                        info = v
-                        break
+                    k_base = normalize_music_key(extract_base_album_title(k_alb))
+                    if (
+                        norm_alb in k_alb
+                        or k_alb in norm_alb
+                        or (len(base_alb) >= 3 and (base_alb == k_alb or base_alb == k_base or base_alb in k_alb or k_alb in base_alb))
+                    ):
+                        matched_infos.append(v)
+
+            if matched_infos:
+                all_tracks = []
+                for mi in matched_infos:
+                    all_tracks.extend(mi.get("tracks", []))
+                total_tr = sum(mi.get("track_count", 0) for mi in matched_infos)
+                info = {"track_count": total_tr, "tracks": all_tracks}
+                self.ipod_album_data[lookup_key] = info
+                self.on_ipod_albums.add(lookup_key)
 
         if not info or info.get("track_count", 0) == 0:
             if lookup_key in self.on_ipod_albums:
@@ -852,8 +868,8 @@ class PlexBrowserWidget(QWidget):
                 if alb.rating_key == album_key:
                     alb.track_count = len(tracks)
                     break
-            self._refresh_album_list_badges()
         self._render_tracks_table(tracks)
+        self._refresh_album_list_badges()
         self._update_album_actions()
 
     def _render_tracks_table(self, tracks: List[PlexTrackDetail]):
@@ -875,6 +891,36 @@ class PlexBrowserWidget(QWidget):
             self.ipod_album_data[norm_key]["track_count"] = on_count
         elif on_count > 0:
             self.ipod_album_data[norm_key] = {"track_count": on_count, "tracks": []}
+
+        if on_count > 0:
+            self.on_ipod_albums.add(norm_key)
+        else:
+            self.on_ipod_albums.discard(norm_key)
+
+        # Recalculate artist album count & update artist badge in artist_list
+        if self.selected_artist:
+            norm_art = normalize_music_key(self.selected_artist.name)
+            synced_count = sum(
+                1 for alb in self.current_albums
+                if self.get_album_ipod_status(alb.artist_name, alb.title, alb.track_count)[0] in ("complete", "partial")
+            )
+            self.ipod_artist_album_counts[norm_art] = max(self.ipod_artist_album_counts.get(norm_art, 0), synced_count)
+            self._update_filter_button_counts()
+            curr_row = self.artist_list.currentRow()
+            if 0 <= curr_row < self.artist_list.count():
+                total_cnt = len(self.current_albums)
+                ipod_cnt = self.ipod_artist_album_counts.get(norm_art, 0)
+                if total_cnt > 0 and ipod_cnt >= total_cnt:
+                    badge = f"✓ {total_cnt} album{'s' if total_cnt != 1 else ''}"
+                    color = QColor("#a6e3a1")
+                elif ipod_cnt > 0:
+                    badge = f"◐ {ipod_cnt}/{total_cnt} albums"
+                    color = QColor("#89dceb")
+                else:
+                    badge = f"{total_cnt} album{'s' if total_cnt != 1 else ''}"
+                    color = QColor("#cdd6f4")
+                self.artist_list.item(curr_row).setText(f"{self.selected_artist.name}\n{badge}")
+                self.artist_list.item(curr_row).setForeground(color)
 
         if on_count == total_count and total_count > 0:
             status_text = f"✓ {total_count}/{total_count}"

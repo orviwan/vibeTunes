@@ -188,3 +188,82 @@ def test_album_and_track_count_auto_synchronization(qapp):
     assert browser.selected_album.track_count == 12
     assert browser.current_albums[0].track_count == 12
     assert "Tracks (12)" in browser.track_header.text()
+
+
+def test_album_matching_with_subtitles_and_ampersand(qapp):
+    """
+    Verifies that albums like 'Slanted & Enchanted: Luxe & Reduxe' match iPod folder
+    'Slanted and Enchanted', displaying as synced in the album grid and track table.
+    """
+    from vibetunes.core.plex_client import (
+        PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail,
+        normalize_music_key, extract_base_album_title
+    )
+    from vibetunes.core.ipod_scanner import parse_album_folder_name, iPodTrack
+    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from pathlib import Path
+
+    # 1. Test parse_album_folder_name strips disc suffixes
+    name, year = parse_album_folder_name("Pavement-1992-Slanted and Enchanted (Disc 1)", "Pavement")
+    assert name == "Slanted and Enchanted"
+    assert year == 1992
+
+    # 2. Test extract_base_album_title
+    assert extract_base_album_title("Slanted & Enchanted: Luxe & Reduxe") == "Slanted & Enchanted"
+    assert extract_base_album_title("Crooked Rain, Crooked Rain: LA's Desert Origins") == "Crooked Rain, Crooked Rain"
+
+    # 3. Test PlexBrowserWidget matching
+    plex = PlexManager()
+    browser = PlexBrowserWidget(plex)
+
+    art = PlexArtistSummary(rating_key="1", name="Pavement", album_count=1)
+    browser.artists = [art]
+    browser.selected_artist = art
+
+    # Plex has 'Slanted & Enchanted: Luxe & Reduxe' with 48 tracks
+    alb = PlexAlbumSummary(
+        rating_key="101",
+        title="Slanted & Enchanted: Luxe & Reduxe",
+        artist_name="Pavement",
+        year=1992,
+        track_count=48,
+    )
+    browser.current_albums = [alb]
+    browser.displayed_albums = [alb]
+
+    # iPod has 'Slanted and Enchanted' with 48 tracks
+    ipod_key = normalize_music_key("Pavement", "Slanted and Enchanted")
+    mock_tracks = [
+        iPodTrack(filename=f"{i:02d} - Track.flac", path=Path(f"/mock/{i}"), size_bytes=1000, title=f"Track {i}", track_number=i)
+        for i in range(1, 49)
+    ]
+    browser.update_ipod_known_albums(
+        album_keys={ipod_key},
+        artist_counts={normalize_music_key("Pavement"): 1},
+        ipod_album_data={ipod_key: {"track_count": 48, "tracks": mock_tracks}},
+        ipod_artist_tracks={normalize_music_key("Pavement"): mock_tracks},
+    )
+
+    # Check status: should be "complete" even before clicking
+    status, on_cnt, miss_cnt = browser.get_album_ipod_status("Pavement", "Slanted & Enchanted: Luxe & Reduxe", 48)
+    assert status == "complete"
+    assert on_cnt == 48
+    assert miss_cnt == 0
+
+    # Refresh album badges: grid item must show checkmark
+    browser._refresh_album_list_badges()
+    assert browser.album_list.count() == 1
+    assert "✓" in browser.album_list.item(0).text()
+
+    # Select the album and load tracks
+    browser.selected_album = alb
+    plex_tracks = [
+        PlexTrackDetail(rating_key=str(i), title=f"Track {i}", artist_name="Pavement", album_title=alb.title, track_number=i)
+        for i in range(1, 49)
+    ]
+    browser._on_tracks_loaded("101", plex_tracks)
+
+    # Verified: all 48 tracks synced, header shows 48/48, grid item has checkmark
+    assert "✓ 48/48" in browser.track_header.text()
+    assert "✓" in browser.album_list.item(0).text()
+    assert browser.sync_artist_btn.text() == "✓ Synced (Re-sync)"

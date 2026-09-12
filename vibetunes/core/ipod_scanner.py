@@ -143,6 +143,9 @@ def parse_album_folder_name(folder_name: str, artist_name: str) -> tuple[str, Op
             except ValueError:
                 pass
 
+    # 5. Strip disc/CD suffixes e.g. " (Disc 1)", " [CD 2]", " - Disc 01", " CD 1"
+    name = re.sub(r"\s*(?:[\(\[-]\s*)?(?:cd|disc)\s*\d+[\)\]]?\s*$", "", name, flags=re.IGNORECASE).strip()
+
     return name if name else folder_name, year
 
 def scan_album_directory(album_dir: Path, artist_name: str) -> iPodAlbum:
@@ -223,18 +226,35 @@ def scan_ipod_music(mount_point: str, progress_callback: Optional[Callable[[int,
             album_dirs = [d for d in artist_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]
             album_dirs.sort(key=lambda x: x.name.lower())
 
+            # Helper to add or merge an album under artist
+            def add_or_merge_album(alb: iPodAlbum):
+                if alb.track_count <= 0:
+                    return
+                from vibetunes.core.plex_client import normalize_music_key
+                alb_k = normalize_music_key(artist.name, alb.title)
+                existing = next(
+                    (a for a in artist.albums if normalize_music_key(artist.name, a.title) == alb_k),
+                    None
+                )
+                if existing:
+                    existing.tracks.extend(alb.tracks)
+                    existing.tracks.sort(key=lambda t: (t.track_number, t.filename))
+                    existing.total_size_bytes += alb.total_size_bytes
+                    if not existing.cover_art and alb.cover_art:
+                        existing.cover_art = alb.cover_art
+                else:
+                    artist.albums.append(alb)
+
             # Check if tracks are placed directly in artist dir or in album subdirs
             has_subdirs = len(album_dirs) > 0
             if has_subdirs:
                 for a_dir in album_dirs:
                     album = scan_album_directory(a_dir, artist.name)
-                    if album.track_count > 0:
-                        artist.albums.append(album)
+                    add_or_merge_album(album)
             else:
                 # Direct album / single folder
                 album = scan_album_directory(artist_dir, artist.name)
-                if album.track_count > 0:
-                    artist.albums.append(album)
+                add_or_merge_album(album)
 
             artist.total_size_bytes = sum(a.total_size_bytes for a in artist.albums)
             if artist.track_count > 0:
@@ -281,13 +301,15 @@ def find_and_delete_ipod_album(mount_point: str, artist_name: str, album_title: 
     Finds and deletes an album folder matching artist_name and album_title on the iPod.
     Returns (success, freed_bytes, message).
     """
-    from vibetunes.core.plex_client import normalize_music_key
+    from vibetunes.core.plex_client import normalize_music_key, extract_base_album_title
 
     mp = Path(mount_point)
     if not mp.is_dir():
         return False, 0, f"iPod mount point {mount_point} not accessible"
 
     target_album_norm = normalize_music_key(artist_name, album_title)
+    target_alb_only = normalize_music_key(album_title)
+    target_base = normalize_music_key(extract_base_album_title(album_title))
     target_artist_norm = normalize_music_key(artist_name)
 
     # Search for matching artist directory first
@@ -302,9 +324,17 @@ def find_and_delete_ipod_album(mount_point: str, artist_name: str, album_title: 
             if not alb_dir.is_dir():
                 continue
             alb_clean_title, _ = parse_album_folder_name(alb_dir.name, art_dir.name)
-            if (normalize_music_key(art_dir.name, alb_clean_title) == target_album_norm or
+            alb_clean_norm = normalize_music_key(alb_clean_title)
+            alb_dir_norm = normalize_music_key(alb_dir.name)
+            is_match = (
+                normalize_music_key(art_dir.name, alb_clean_title) == target_album_norm or
                 normalize_music_key(artist_name, alb_dir.name) == target_album_norm or
-                normalize_music_key(artist_name, alb_clean_title) == target_album_norm):
+                normalize_music_key(artist_name, alb_clean_title) == target_album_norm or
+                alb_clean_norm == target_alb_only or
+                (len(target_alb_only) >= 3 and (target_alb_only in alb_clean_norm or alb_clean_norm in target_alb_only)) or
+                (len(target_base) >= 3 and (target_base in alb_clean_norm or alb_clean_norm in target_base))
+            )
+            if is_match:
 
                 try:
                     freed = sum(f.stat().st_size for f in alb_dir.rglob("*") if f.is_file())

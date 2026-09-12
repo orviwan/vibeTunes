@@ -684,7 +684,12 @@ class MainWindow(QMainWindow):
         if errors:
             plex_404_count = sum(1 for e in errors if "404" in e or "Plex Server" in e)
             other_errors = len(errors) - plex_404_count
-            if plex_404_count > 0 and other_errors == 0:
+            if total_tracks == 0 and plex_404_count > 0:
+                self.statusBar().showMessage(
+                    f"Sync failed: 0 track(s) synced • ⚠ {plex_404_count} track(s) missing on Plex server (HTTP 404 - files missing on Plex host)",
+                    15000
+                )
+            elif plex_404_count > 0 and other_errors == 0:
                 self.statusBar().showMessage(
                     f"Sync complete: {total_tracks} track(s) synced • ⚠ {plex_404_count} track(s) missing on Plex server (HTTP 404)",
                     12000

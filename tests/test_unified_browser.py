@@ -403,5 +403,18 @@ def test_multivolume_album_browser_status(qapp):
     assert "◐ 1/2 albums" in browser.artist_list.item(0).text()
     assert "+ Add Missing (1)" in browser.sync_artist_btn.text()
 
+    # 3. Simulate Plex returning 404 for all Volume 2 tracks
+    plex.mark_track_unavailable("201")
+    plex.mark_track_unavailable("202")
+    browser._on_tracks_loaded(alb2.rating_key, vol2_tracks)
+
+    # Sync album button must be disabled with 404 notice
+    assert browser.sync_album_btn.isEnabled() is False
+    assert "⚠ Missing on Plex (404)" in browser.sync_album_btn.text()
+
+    # Album list item for Volume 2 must show 404 badge
+    assert "⚠" in browser.album_list.item(1).text()
+    assert "404" in browser.album_list.item(1).text()
+
 
 

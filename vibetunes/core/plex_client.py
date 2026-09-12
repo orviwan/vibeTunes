@@ -198,6 +198,7 @@ class PlexManager:
         self.library_locations: Dict[str, List[str]] = {}
         self.unavailable_track_keys: Set[str] = set()
         self.unavailable_track_reasons: Dict[str, str] = {}
+        self.unavailable_album_keys: Set[str] = set()
 
     def mark_track_unavailable(self, rating_key: str, reason: str = "HTTP 404 (file missing on Plex server)"):
         """Records a track as unavailable on the Plex server."""
@@ -220,6 +221,15 @@ class PlexManager:
     def get_track_unavailable_reason(self, rating_key: str) -> Optional[str]:
         """Returns the reason a track is unavailable on Plex, if known."""
         return self.unavailable_track_reasons.get(str(rating_key))
+
+    def mark_album_unavailable(self, album_key: str):
+        """Records an album as having unavailable/404 tracks on Plex."""
+        if album_key:
+            self.unavailable_album_keys.add(str(album_key))
+
+    def is_album_unavailable(self, album_key: str) -> bool:
+        """Checks if an album is known to be unavailable (all missing tracks are 404)."""
+        return str(album_key) in self.unavailable_album_keys
 
     def check_tracks_availability(self, tracks: List["PlexTrackDetail"], max_workers: int = 8) -> Set[str]:
         """

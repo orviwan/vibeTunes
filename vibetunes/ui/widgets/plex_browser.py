@@ -617,6 +617,7 @@ class PlexBrowserWidget(QWidget):
         for alb in self.displayed_albums:
             yr_str = f" ({alb.year})" if alb.year else ""
             status, on_cnt, miss_cnt = self.get_album_ipod_status(alb.artist_name, alb.title, alb.track_count)
+            is_alb_unavail = self.plex.is_album_unavailable(alb.rating_key)
 
             pix = self.thumb_manager.get_thumbnail(alb.thumb_url, self.plex.token, is_artist=False, size=icon_size)
 
@@ -632,6 +633,9 @@ class PlexBrowserWidget(QWidget):
                     color = QColor("#a6e3a1")
                 elif status == "partial":
                     status_header = f"◐ {on_cnt}/{alb.track_count}\n"
+                    color = QColor("#fab387")
+                elif is_alb_unavail:
+                    status_header = "⚠ 404\n"
                     color = QColor("#fab387")
                 else:
                     status_header = ""
@@ -653,6 +657,10 @@ class PlexBrowserWidget(QWidget):
                 elif status == "partial":
                     status_suffix = f" ({on_cnt}/{alb.track_count})"
                     prefix = "◐ "
+                    color = QColor("#fab387")
+                elif is_alb_unavail:
+                    status_suffix = " • ⚠ Missing on Plex (404)"
+                    prefix = "⚠ "
                     color = QColor("#fab387")
                 else:
                     status_suffix = ""
@@ -775,6 +783,10 @@ class PlexBrowserWidget(QWidget):
             self.selected_album.artist_name, self.selected_album.title, self.selected_album.track_count
         )
 
+        unavail_tracks = []
+        if self.current_tracks and self.selected_album:
+            unavail_tracks = [t for t in self.current_tracks if self.plex.is_track_unavailable(t.rating_key)]
+
         if status == "complete":
             self.sync_album_btn.setVisible(False)
             self.sync_album_btn.setEnabled(False)
@@ -785,13 +797,25 @@ class PlexBrowserWidget(QWidget):
             self.delete_album_btn.setEnabled(True)
             self.delete_album_btn.setText("Remove from iPod")
         elif status == "partial":
+            missing_tracks = [t for t in self.current_tracks if not self._is_track_on_ipod(t)]
+            avail_missing = [t for t in missing_tracks if not self.plex.is_track_unavailable(t.rating_key)]
             self.sync_album_btn.setVisible(True)
-            self.sync_album_btn.setEnabled(True)
-            self.sync_album_btn.setText(f"+ Add Missing ({miss_cnt} tracks)")
-            self.sync_album_btn.setStyleSheet("""
-                QPushButton { background-color: #fab387; color: #11111b; font-weight: bold; padding: 6px 14px; }
-                QPushButton:hover { background-color: #f9e2af; }
-            """)
+            if self.current_tracks and missing_tracks and not avail_missing:
+                self.sync_album_btn.setEnabled(False)
+                self.sync_album_btn.setText(f"⚠ Missing on Plex ({len(missing_tracks)})")
+                self.sync_album_btn.setToolTip("Cannot sync: missing tracks return HTTP 404 on the Plex server.")
+                self.sync_album_btn.setStyleSheet("""
+                    QPushButton { background-color: #fab387; color: #11111b; font-weight: bold; padding: 6px 14px; }
+                """)
+            else:
+                self.sync_album_btn.setEnabled(True)
+                btn_cnt = len(avail_missing) if self.current_tracks else miss_cnt
+                self.sync_album_btn.setText(f"+ Add Missing ({btn_cnt} tracks)")
+                self.sync_album_btn.setToolTip("")
+                self.sync_album_btn.setStyleSheet("""
+                    QPushButton { background-color: #fab387; color: #11111b; font-weight: bold; padding: 6px 14px; }
+                    QPushButton:hover { background-color: #f9e2af; }
+                """)
             self.resync_album_btn.setVisible(True)
             self.resync_album_btn.setEnabled(True)
             self.resync_album_btn.setText("Re-sync Full Album")
@@ -800,12 +824,30 @@ class PlexBrowserWidget(QWidget):
             self.delete_album_btn.setText(f"Remove from iPod ({on_cnt})")
         else:  # "none"
             self.sync_album_btn.setVisible(True)
-            self.sync_album_btn.setEnabled(True)
-            self.sync_album_btn.setText("+ Add to iPod")
-            self.sync_album_btn.setStyleSheet("""
-                QPushButton { background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px 14px; }
-                QPushButton:hover { background-color: #b4befe; }
-            """)
+            if self.plex.is_album_unavailable(self.selected_album.rating_key) or (self.current_tracks and len(unavail_tracks) == len(self.current_tracks)):
+                self.sync_album_btn.setEnabled(False)
+                self.sync_album_btn.setText("⚠ Missing on Plex (404)")
+                self.sync_album_btn.setToolTip("Cannot sync: tracks for this album return HTTP 404 from the Plex server (audio files missing on Plex host).")
+                self.sync_album_btn.setStyleSheet("""
+                    QPushButton { background-color: #fab387; color: #11111b; font-weight: bold; padding: 6px 14px; }
+                """)
+            elif self.current_tracks and len(unavail_tracks) > 0:
+                avail_cnt = len(self.current_tracks) - len(unavail_tracks)
+                self.sync_album_btn.setEnabled(True)
+                self.sync_album_btn.setText(f"+ Add Available ({avail_cnt} tracks)")
+                self.sync_album_btn.setToolTip(f"{len(unavail_tracks)} track(s) missing on Plex server (HTTP 404)")
+                self.sync_album_btn.setStyleSheet("""
+                    QPushButton { background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px 14px; }
+                    QPushButton:hover { background-color: #b4befe; }
+                """)
+            else:
+                self.sync_album_btn.setEnabled(True)
+                self.sync_album_btn.setText("+ Add to iPod")
+                self.sync_album_btn.setToolTip("")
+                self.sync_album_btn.setStyleSheet("""
+                    QPushButton { background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px 14px; }
+                    QPushButton:hover { background-color: #b4befe; }
+                """)
             self.resync_album_btn.setVisible(False)
             self.resync_album_btn.setEnabled(False)
             self.delete_album_btn.setVisible(False)
@@ -875,6 +917,12 @@ class PlexBrowserWidget(QWidget):
                 if alb.rating_key == album_key:
                     alb.track_count = len(tracks)
                     break
+
+        # Check if all missing tracks are unavailable (404)
+        missing = [t for t in tracks if not self._is_track_on_ipod(t)]
+        if missing and all(self.plex.is_track_unavailable(t.rating_key) for t in missing):
+            self.plex.mark_album_unavailable(album_key)
+
         self._render_tracks_table(tracks)
         self._refresh_album_list_badges()
         self._update_album_actions()

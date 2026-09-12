@@ -417,4 +417,111 @@ def test_multivolume_album_browser_status(qapp):
     assert "404" in browser.album_list.item(1).text()
 
 
+def test_status_icon_badge_alignment(qapp):
+    """
+    Verifies that the artist list, album list (grid & list mode), and track table
+    consistently use high-DPI icon badges aligned with the playlists browser.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QPixmap
+    from vibetunes.core.plex_client import (
+        PlexManager, PlexArtistSummary, PlexAlbumSummary, normalize_music_key
+    )
+    from vibetunes.ui.widgets.plex_browser import (
+        PlexBrowserWidget, badge_pixmap_with_status
+    )
+
+    plex = PlexManager()
+    browser = PlexBrowserWidget(plex)
+
+    # 1. Verify track table header has "Status" column header matching playlists
+    assert browser.track_table.horizontalHeaderItem(2).text() == "Status"
+
+    # 2. Test badge_pixmap_with_status for all statuses
+    dummy_pix = QPixmap(60, 60)
+    dummy_pix.fill(Qt.black)
+    for st in ("complete", "partial", "warning", "syncing", "queued", "none"):
+        badged = badge_pixmap_with_status(dummy_pix, st, badge_size=18)
+        assert not badged.isNull()
+        assert badged.width() == 60
+        assert badged.height() == 60
+
+    # 3. Setup artist with 2 albums
+    art = PlexArtistSummary(rating_key="10", name="Slowdive", album_count=2, thumb_url="")
+    browser.artists = [art]
+
+    alb1 = PlexAlbumSummary(rating_key="101", title="Souvlaki", artist_name="Slowdive", year=1993, track_count=10)
+    alb2 = PlexAlbumSummary(rating_key="102", title="Pygmalion", artist_name="Slowdive", year=1995, track_count=9)
+    browser.current_albums = [alb1, alb2]
+
+    # iPod has only alb1
+    norm_art = normalize_music_key("Slowdive")
+    alb1_key = normalize_music_key("Slowdive", "Souvlaki")
+    browser.update_ipod_known_albums(
+        album_keys={alb1_key},
+        artist_counts={norm_art: 1},
+        ipod_album_data={alb1_key: {"track_count": 10, "tracks": []}},
+    )
+
+    # Verify Artist list item
+    assert browser.artist_list.count() == 1
+    art_item = browser.artist_list.item(0)
+    assert not art_item.icon().isNull()
+    assert art_item.data(Qt.UserRole + 2) == "partial"
+    assert art_item.foreground().color().name() == "#fab387"
+    assert "Slowdive" in art_item.text()
+    assert "◐ 1/2 albums" in art_item.text()
+
+    # 4. Select artist & verify Album list in Grid mode
+    browser.selected_artist = art
+    browser._refresh_album_list_badges()
+    assert browser.album_list.count() == 2
+
+    # Grid item 0 (Souvlaki - complete)
+    grid_item0 = browser.album_list.item(0)
+    assert not grid_item0.icon().isNull()
+    assert grid_item0.data(Qt.UserRole + 2) == "complete"
+    assert grid_item0.foreground().color().name() == "#a6e3a1"
+    # Clean caption: title first, subtitle has ✓ on iPod
+    lines0 = grid_item0.text().split("\n")
+    assert lines0[0] == "Souvlaki"
+    assert "✓ on iPod" in lines0[1]
+
+    # Grid item 1 (Pygmalion - none)
+    grid_item1 = browser.album_list.item(1)
+    assert not grid_item1.icon().isNull()
+    assert grid_item1.data(Qt.UserRole + 2) == "none"
+    assert grid_item1.foreground().color().name() == "#cdd6f4"
+    lines1 = grid_item1.text().split("\n")
+    assert lines1[0] == "Pygmalion"
+
+    # 5. Switch to List mode & verify Album list
+    browser._set_album_view_mode("list")
+    assert browser.album_list.count() == 2
+
+    list_item0 = browser.album_list.item(0)
+    assert not list_item0.icon().isNull()
+    assert list_item0.data(Qt.UserRole + 2) == "complete"
+    list_lines0 = list_item0.text().split("\n")
+    assert list_lines0[0] == "Souvlaki (1993)"
+    assert "10 tracks • ✓ on iPod" in list_lines0[1]
+
+    list_item1 = browser.album_list.item(1)
+    assert not list_item1.icon().isNull()
+    assert list_item1.data(Qt.UserRole + 2) == "none"
+    list_lines1 = list_item1.text().split("\n")
+    assert list_lines1[0] == "Pygmalion (1995)"
+    assert list_lines1[1] == "9 tracks"
+
+    # 6. Verify active sync and queued badge statuses in album list
+    browser.update_sync_queue_keys(queued_keys={"102"}, active_key="101")
+    item0_syncing = browser.album_list.item(0)
+    assert item0_syncing.data(Qt.UserRole + 2) == "syncing"
+    assert "● Syncing" in item0_syncing.text()
+
+    item1_queued = browser.album_list.item(1)
+    assert item1_queued.data(Qt.UserRole + 2) == "queued"
+    assert "⏱ Queued" in item1_queued.text()
+
+
 

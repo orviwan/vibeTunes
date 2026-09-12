@@ -25,43 +25,101 @@ def format_duration(ms: int) -> str:
     seconds = total_seconds % 60
     return f"{minutes}:{seconds:02d}"
 
-def make_status_icon(status: Any) -> QIcon:
-    """Generates a high-DPI visual status badge for tracks on/missing from iPod or unavailable on Plex."""
-    pix = QPixmap(16, 16)
-    pix.fill(Qt.transparent)
-    painter = QPainter(pix)
-    painter.setRenderHint(QPainter.Antialiasing)
+def draw_status_badge(painter: QPainter, x: int, y: int, size: int, status: Any):
+    """Draws a crisp status badge icon inside bounding box (x, y, size, size)."""
+    s = float(size)
     if status is True or status in ("on_ipod", "complete"):
         # Solid vibrant green circular badge with dark checkmark
         painter.setBrush(QColor("#a6e3a1"))
         painter.setPen(Qt.NoPen)
-        painter.drawEllipse(1, 1, 14, 14)
-        painter.setPen(QPen(QColor("#11111b"), 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        painter.drawLine(4, 8, 7, 11)
-        painter.drawLine(7, 11, 12, 5)
+        painter.drawEllipse(x, y, size, size)
+        pen_w = max(1.5, s * 0.12)
+        painter.setPen(QPen(QColor("#11111b"), pen_w, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        painter.drawLine(int(x + s * 0.25), int(y + s * 0.52), int(x + s * 0.45), int(y + s * 0.72))
+        painter.drawLine(int(x + s * 0.45), int(y + s * 0.72), int(x + s * 0.77), int(y + s * 0.30))
     elif status in ("warning", "plex_error", "404"):
         # Amber/peach circular warning badge with exclamation mark
         painter.setBrush(QColor("#fab387"))
         painter.setPen(Qt.NoPen)
-        painter.drawEllipse(1, 1, 14, 14)
-        painter.setPen(QPen(QColor("#11111b"), 2.0, Qt.SolidLine, Qt.RoundCap))
-        painter.drawLine(8, 4, 8, 9)
-        painter.drawPoint(8, 12)
+        painter.drawEllipse(x, y, size, size)
+        pen_w = max(1.8, s * 0.14)
+        painter.setPen(QPen(QColor("#11111b"), pen_w, Qt.SolidLine, Qt.RoundCap))
+        painter.drawLine(int(x + s * 0.5), int(y + s * 0.24), int(x + s * 0.5), int(y + s * 0.58))
+        painter.drawPoint(int(x + s * 0.5), int(y + s * 0.77))
     elif status == "partial":
         # Two-tone partial badge
-        painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor("#a6e3a1"), 1.8))
-        painter.drawEllipse(2, 2, 11, 11)
+        painter.setBrush(QColor("#1e1e2e"))
+        painter.setPen(QPen(QColor("#fab387"), max(1.4, s * 0.11)))
+        painter.drawEllipse(x + 1, y + 1, size - 2, size - 2)
         painter.setBrush(QColor("#a6e3a1"))
         painter.setPen(Qt.NoPen)
-        painter.drawPie(2, 2, 11, 11, 90 * 16, 180 * 16)
+        painter.drawPie(x + 1, y + 1, size - 2, size - 2, 90 * 16, 180 * 16)
+    elif status == "syncing":
+        # Solid blue/green sync badge
+        painter.setBrush(QColor("#89b4fa"))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(x, y, size, size)
+        pen_w = max(1.5, s * 0.12)
+        painter.setPen(QPen(QColor("#11111b"), pen_w, Qt.SolidLine, Qt.RoundCap))
+        painter.drawArc(int(x + s * 0.22), int(y + s * 0.22), int(s * 0.56), int(s * 0.56), 45 * 16, 270 * 16)
+    elif status == "queued":
+        # Purple queued badge with clock hands
+        painter.setBrush(QColor("#cba6f7"))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(x, y, size, size)
+        pen_w = max(1.5, s * 0.12)
+        painter.setPen(QPen(QColor("#11111b"), pen_w, Qt.SolidLine, Qt.RoundCap))
+        cx, cy = int(x + s * 0.5), int(y + s * 0.5)
+        painter.drawLine(cx, cy, cx, int(y + s * 0.25))
+        painter.drawLine(cx, cy, int(x + s * 0.72), cy)
     else:
-        # Subtle muted ring for missing track
+        # Subtle muted ring for missing track/album
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor("#585b70"), 1.6))
-        painter.drawEllipse(2, 2, 11, 11)
+        painter.setPen(QPen(QColor("#585b70"), max(1.4, s * 0.11)))
+        painter.drawEllipse(x + 1, y + 1, size - 2, size - 2)
+
+def make_status_icon(status: Any, size: int = 16) -> QIcon:
+    """Generates a high-DPI visual status badge for tracks on/missing from iPod or unavailable on Plex."""
+    pix = QPixmap(size, size)
+    pix.fill(Qt.transparent)
+    painter = QPainter(pix)
+    painter.setRenderHint(QPainter.Antialiasing)
+    draw_status_badge(painter, 1, 1, size - 2, status)
     painter.end()
     return QIcon(pix)
+
+def badge_pixmap_with_status(base_pix: QPixmap, status: Any, badge_size: Optional[int] = None) -> QPixmap:
+    """Overlays a crisp status badge icon onto the bottom-right corner of a thumbnail."""
+    if base_pix.isNull():
+        return base_pix
+    w = base_pix.width()
+    h = base_pix.height()
+    if badge_size is None:
+        if w >= 90:
+            badge_size = 24
+        elif w >= 50:
+            badge_size = 18
+        else:
+            badge_size = 15
+
+    badged = base_pix.copy()
+    painter = QPainter(badged)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    margin = 3
+    bx = w - badge_size - margin
+    by = h - badge_size - margin
+
+    # Circular background plate with dark border to ensure high contrast against any artwork
+    plate_pad = 2
+    painter.setBrush(QColor("#11111b"))
+    painter.setPen(QPen(QColor("#181825"), 1.0))
+    painter.drawEllipse(bx - plate_pad, by - plate_pad, badge_size + 2 * plate_pad, badge_size + 2 * plate_pad)
+
+    # Draw the status badge
+    draw_status_badge(painter, bx, by, badge_size, status)
+    painter.end()
+    return badged
 
 class PlexWorkerSignals(QObject):
     artists_loaded = Signal(list)
@@ -101,6 +159,8 @@ class PlexBrowserWidget(QWidget):
         self._icon_missing = make_status_icon(False)
         self._icon_warning = make_status_icon("warning")
         self._icon_partial = make_status_icon("partial")
+        self._icon_syncing = make_status_icon("syncing")
+        self._icon_queued = make_status_icon("queued")
         self.ipod_mount: str = ""
 
         self.worker_signals = PlexWorkerSignals(self)
@@ -282,7 +342,7 @@ class PlexBrowserWidget(QWidget):
 
         self.track_table = QTableWidget()
         self.track_table.setColumnCount(6)
-        self.track_table.setHorizontalHeaderLabels(["#", "Title", "iPod", "Duration", "Format", "Size"])
+        self.track_table.setHorizontalHeaderLabels(["#", "Title", "Status", "Duration", "Format", "Size"])
         self.track_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.track_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.track_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
@@ -504,7 +564,6 @@ class PlexBrowserWidget(QWidget):
             if current_artist_key and a.rating_key == current_artist_key:
                 target_row = idx
 
-            pix = self.thumb_manager.get_thumbnail(a.thumb_url, self.plex.token, is_artist=True, size=44)
             norm_art = normalize_music_key(a.name)
             ipod_cnt = self.ipod_artist_album_counts.get(norm_art, 0)
             total_cnt = a.album_count
@@ -512,16 +571,23 @@ class PlexBrowserWidget(QWidget):
             if total_cnt > 0 and ipod_cnt >= total_cnt:
                 badge = f"✓ {total_cnt} album{'s' if total_cnt != 1 else ''}"
                 color = QColor("#a6e3a1")
+                status = "complete"
             elif ipod_cnt > 0:
                 badge = f"◐ {ipod_cnt}/{total_cnt} albums"
-                color = QColor("#89dceb")
+                color = QColor("#fab387")
+                status = "partial"
             else:
                 badge = f"{total_cnt} album{'s' if total_cnt != 1 else ''}"
                 color = QColor("#cdd6f4")
+                status = "none"
 
-            item = QListWidgetItem(QIcon(pix), f"{a.name}\n{badge}")
+            pix = self.thumb_manager.get_thumbnail(a.thumb_url, self.plex.token, is_artist=True, size=44)
+            badged_pix = badge_pixmap_with_status(pix, status, badge_size=15)
+
+            item = QListWidgetItem(QIcon(badged_pix), f"{a.name}\n{badge}")
             item.setForeground(color)
             item.setData(Qt.UserRole + 1, a.thumb_url)
+            item.setData(Qt.UserRole + 2, status)
             self.artist_list.addItem(item)
 
         self.artist_list.blockSignals(False)
@@ -576,16 +642,23 @@ class PlexBrowserWidget(QWidget):
             if total_cnt > 0 and ipod_cnt >= total_cnt:
                 badge = f"✓ {total_cnt} album{'s' if total_cnt != 1 else ''}"
                 color = QColor("#a6e3a1")
+                status = "complete"
             elif ipod_cnt > 0:
                 badge = f"◐ {ipod_cnt}/{total_cnt} albums"
-                color = QColor("#89dceb")
+                color = QColor("#fab387")
+                status = "partial"
             else:
                 badge = f"{total_cnt} album{'s' if total_cnt != 1 else ''}"
                 color = QColor("#cdd6f4")
+                status = "none"
             curr_row = self.artist_list.currentRow()
             if 0 <= curr_row < self.artist_list.count():
-                self.artist_list.item(curr_row).setText(f"{self.selected_artist.name}\n{badge}")
-                self.artist_list.item(curr_row).setForeground(color)
+                curr_item = self.artist_list.item(curr_row)
+                curr_item.setText(f"{self.selected_artist.name}\n{badge}")
+                curr_item.setForeground(color)
+                curr_item.setData(Qt.UserRole + 2, status)
+                pix = self.thumb_manager.get_thumbnail(self.selected_artist.thumb_url, self.plex.token, is_artist=True, size=44)
+                curr_item.setIcon(QIcon(badge_pixmap_with_status(pix, status, badge_size=15)))
 
         self.album_header.setText(f"Albums ({len(albums)})")
         self._refresh_album_list_badges()
@@ -619,57 +692,66 @@ class PlexBrowserWidget(QWidget):
             status, on_cnt, miss_cnt = self.get_album_ipod_status(alb.artist_name, alb.title, alb.track_count)
             is_alb_unavail = self.plex.is_album_unavailable(alb.rating_key)
 
+            if alb.rating_key == self.active_sync_album_key:
+                effective_status = "syncing"
+            elif alb.rating_key in self.queued_album_keys:
+                effective_status = "queued"
+            elif is_alb_unavail:
+                effective_status = "warning"
+            elif status == "complete":
+                effective_status = "complete"
+            elif status == "partial":
+                effective_status = "partial"
+            else:
+                effective_status = "none"
+
             pix = self.thumb_manager.get_thumbnail(alb.thumb_url, self.plex.token, is_artist=False, size=icon_size)
+            badged_pix = badge_pixmap_with_status(pix, effective_status, badge_size=24 if is_grid else 18)
 
             if is_grid:
-                if alb.rating_key == self.active_sync_album_key:
-                    status_header = "● SYNCING\n"
+                if effective_status == "syncing":
+                    status_line = "● Syncing"
                     color = QColor("#a6e3a1")
-                elif alb.rating_key in self.queued_album_keys:
-                    status_header = "⏱ QUEUED\n"
+                elif effective_status == "queued":
+                    status_line = "⏱ Queued"
                     color = QColor("#cba6f7")
-                elif status == "complete":
-                    status_header = "✓\n"
+                elif effective_status == "complete":
+                    status_line = f"{yr_str.strip()} • ✓ on iPod" if yr_str else "✓ on iPod"
                     color = QColor("#a6e3a1")
-                elif status == "partial":
-                    status_header = f"◐ {on_cnt}/{alb.track_count}\n"
+                elif effective_status == "partial":
+                    status_line = f"{yr_str.strip()} • ◐ {on_cnt}/{alb.track_count}" if yr_str else f"◐ {on_cnt}/{alb.track_count}"
                     color = QColor("#fab387")
-                elif is_alb_unavail:
-                    status_header = "⚠ 404\n"
+                elif effective_status == "warning":
+                    status_line = f"{yr_str.strip()} • ⚠ Missing on Plex (404)" if yr_str else "⚠ Missing on Plex (404)"
                     color = QColor("#fab387")
                 else:
-                    status_header = ""
+                    status_line = yr_str.strip() or "Album"
                     color = QColor("#cdd6f4")
-                caption = f"{status_header}{alb.title}\n{yr_str.strip() or 'Album'}"
+                caption = f"{alb.title}\n{status_line}"
             else:
-                if alb.rating_key == self.active_sync_album_key:
-                    status_suffix = " • Syncing"
-                    prefix = "● "
+                if effective_status == "syncing":
+                    status_suffix = " • ● Syncing"
                     color = QColor("#a6e3a1")
-                elif alb.rating_key in self.queued_album_keys:
-                    status_suffix = " • Queued"
-                    prefix = "⏱ "
+                elif effective_status == "queued":
+                    status_suffix = " • ⏱ Queued"
                     color = QColor("#cba6f7")
-                elif status == "complete":
-                    status_suffix = ""
-                    prefix = "✓ "
+                elif effective_status == "complete":
+                    status_suffix = " • ✓ on iPod"
                     color = QColor("#a6e3a1")
-                elif status == "partial":
-                    status_suffix = f" ({on_cnt}/{alb.track_count})"
-                    prefix = "◐ "
+                elif effective_status == "partial":
+                    status_suffix = f" • ◐ {on_cnt}/{alb.track_count} on iPod"
                     color = QColor("#fab387")
-                elif is_alb_unavail:
+                elif effective_status == "warning":
                     status_suffix = " • ⚠ Missing on Plex (404)"
-                    prefix = "⚠ "
                     color = QColor("#fab387")
                 else:
                     status_suffix = ""
-                    prefix = ""
                     color = QColor("#cdd6f4")
-                caption = f"{prefix}{alb.title}{yr_str}{status_suffix}\n{alb.track_count} tracks"
+                caption = f"{alb.title}{yr_str}\n{alb.track_count} tracks{status_suffix}"
 
-            item = QListWidgetItem(QIcon(pix), caption)
+            item = QListWidgetItem(QIcon(badged_pix), caption)
             item.setData(Qt.UserRole + 1, alb.thumb_url)
+            item.setData(Qt.UserRole + 2, effective_status)
             if is_grid:
                 item.setTextAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
@@ -857,12 +939,17 @@ class PlexBrowserWidget(QWidget):
         for i in range(self.artist_list.count()):
             it = self.artist_list.item(i)
             if it.data(Qt.UserRole + 1) == url:
-                it.setIcon(QIcon(pixmap))
+                status = it.data(Qt.UserRole + 2)
+                badged = badge_pixmap_with_status(pixmap, status, badge_size=15)
+                it.setIcon(QIcon(badged))
 
         for i in range(self.album_list.count()):
             it = self.album_list.item(i)
             if it.data(Qt.UserRole + 1) == url:
-                it.setIcon(QIcon(pixmap))
+                status = it.data(Qt.UserRole + 2)
+                is_grid = (self.album_view_mode == "grid")
+                badged = badge_pixmap_with_status(pixmap, status, badge_size=24 if is_grid else 18)
+                it.setIcon(QIcon(badged))
 
     def _on_album_selected(self, row: int):
         if row < 0 or row >= len(self.displayed_albums):
@@ -968,14 +1055,21 @@ class PlexBrowserWidget(QWidget):
                 if total_cnt > 0 and ipod_cnt >= total_cnt:
                     badge = f"✓ {total_cnt} album{'s' if total_cnt != 1 else ''}"
                     color = QColor("#a6e3a1")
+                    status = "complete"
                 elif ipod_cnt > 0:
                     badge = f"◐ {ipod_cnt}/{total_cnt} albums"
-                    color = QColor("#89dceb")
+                    color = QColor("#fab387")
+                    status = "partial"
                 else:
                     badge = f"{total_cnt} album{'s' if total_cnt != 1 else ''}"
                     color = QColor("#cdd6f4")
-                self.artist_list.item(curr_row).setText(f"{self.selected_artist.name}\n{badge}")
-                self.artist_list.item(curr_row).setForeground(color)
+                    status = "none"
+                curr_item = self.artist_list.item(curr_row)
+                curr_item.setText(f"{self.selected_artist.name}\n{badge}")
+                curr_item.setForeground(color)
+                curr_item.setData(Qt.UserRole + 2, status)
+                pix = self.thumb_manager.get_thumbnail(self.selected_artist.thumb_url, self.plex.token, is_artist=True, size=44)
+                curr_item.setIcon(QIcon(badge_pixmap_with_status(pix, status, badge_size=15)))
 
         if on_count == total_count and total_count > 0:
             status_text = f"✓ {total_count}/{total_count}"

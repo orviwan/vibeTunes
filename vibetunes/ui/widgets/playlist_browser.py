@@ -254,6 +254,12 @@ class PlaylistBrowserWidget(QWidget):
             if not self.selected_playlist or self.selected_playlist.rating_key != playlist_key:
                 return  # Stale response from previously selected playlist
         self.current_tracks = tracks
+        if self.selected_playlist and self.selected_playlist.track_count != len(tracks):
+            self.selected_playlist.track_count = len(tracks)
+            row = self.plex_pl_list.currentRow()
+            if 0 <= row < self.plex_pl_list.count():
+                dur_str = f" • {format_duration(self.selected_playlist.duration_ms)}" if self.selected_playlist.duration_ms else ""
+                self.plex_pl_list.item(row).setText(f"♪  {self.selected_playlist.title}  ({len(tracks)} tracks{dur_str})")
         self._render_tracks_table(tracks)
 
     def _render_tracks_table(self, tracks: List[PlexTrackDetail]):
@@ -344,19 +350,8 @@ class PlaylistBrowserWidget(QWidget):
             return
 
         pl = self.ipod_playlists[row]
-        confirm = QMessageBox.question(
-            self,
-            "Delete Playlist",
-            f"Are you sure you want to delete playlist '{pl.name}' from your iPod?\n(Audio files will not be deleted)",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if confirm != QMessageBox.Yes:
-            return
-
         success, msg = delete_playlist(pl)
         if success:
-            QMessageBox.information(self, "Playlist Deleted", msg)
             self.reload_ipod_playlists()
             self.playlists_changed.emit()
         else:

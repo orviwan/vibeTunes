@@ -271,7 +271,6 @@ class MainWindow(QMainWindow):
 
         for artist in self.ipod_artists:
             norm_art = normalize_music_key(artist.name)
-            artist_counts[norm_art] = len(artist.albums)
             if norm_art not in ipod_artist_tracks:
                 ipod_artist_tracks[norm_art] = []
 
@@ -287,6 +286,8 @@ class MainWindow(QMainWindow):
                 else:
                     ipod_album_data[key]["track_count"] += len(album.tracks)
                     ipod_album_data[key]["tracks"].extend(album.tracks)
+
+            artist_counts[norm_art] = len({k for k in known if k.startswith(f"{norm_art}::")})
 
         self.plex_browser.update_ipod_known_albums(known, artist_counts, ipod_album_data, ipod_artist_tracks)
         self.playlist_browser.update_ipod_tracks(ipod_artist_tracks)
@@ -435,8 +436,10 @@ class MainWindow(QMainWindow):
                 self.plex_browser.on_ipod_albums.discard(key)
                 self.plex_browser.ipod_album_data.pop(key, None)
                 norm_art = normalize_music_key(task.artist_name)
-                if norm_art in self.plex_browser.ipod_artist_album_counts:
-                    self.plex_browser.ipod_artist_album_counts[norm_art] = max(0, self.plex_browser.ipod_artist_album_counts[norm_art] - 1)
+                self.plex_browser.ipod_artist_album_counts[norm_art] = len(
+                    {k for k in self.plex_browser.on_ipod_albums if k.startswith(f"{norm_art}::")}
+                )
+                self.plex_browser._update_filter_button_counts()
                 self.plex_browser._filter_artists()
                 if self.plex_browser.selected_artist:
                     self.plex_browser._refresh_album_list_badges()
@@ -445,6 +448,7 @@ class MainWindow(QMainWindow):
                 self.plex_browser.ipod_artist_album_counts[norm_art] = 0
                 self.plex_browser.on_ipod_albums = {k for k in self.plex_browser.on_ipod_albums if not k.startswith(f"{norm_art}::")}
                 self.plex_browser.ipod_album_data = {k: v for k, v in self.plex_browser.ipod_album_data.items() if not k.startswith(f"{norm_art}::")}
+                self.plex_browser._update_filter_button_counts()
                 self.plex_browser._filter_artists()
                 if self.plex_browser.selected_artist:
                     self.plex_browser._refresh_album_list_badges()
@@ -612,7 +616,10 @@ class MainWindow(QMainWindow):
                     "tracks": []
                 }
                 norm_art = normalize_music_key(art_name)
-                self.plex_browser.ipod_artist_album_counts[norm_art] = self.plex_browser.ipod_artist_album_counts.get(norm_art, 0) + 1
+                self.plex_browser.ipod_artist_album_counts[norm_art] = len(
+                    {k for k in self.plex_browser.on_ipod_albums if k.startswith(f"{norm_art}::")}
+                )
+                self.plex_browser._update_filter_button_counts()
                 self.plex_browser._filter_artists()
                 self.plex_browser._refresh_album_list_badges()
                 if self.plex_browser.selected_album and self.plex_browser.selected_album.title == album_title:

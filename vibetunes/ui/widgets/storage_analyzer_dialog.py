@@ -400,25 +400,7 @@ class StorageAnalyzerDialog(QDialog):
         self.accept()
 
     def _on_delete_album(self, alb: Dict[str, Any]):
-        confirm = QMessageBox.question(
-            self,
-            "Delete Album",
-            f"Permanently delete album '{alb['title']}' by {alb['artist_name']} from your iPod?\n\n"
-            f"Space to be freed: {format_bytes(alb['size_bytes'])}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if confirm == QMessageBox.Yes:
-            self.delete_album_requested.emit(alb["artist_name"], alb["title"])
+        self.delete_album_requested.emit(alb["artist_name"], alb["title"])
 
     def _on_delete_artist(self, art: Dict[str, Any]):
-        confirm = QMessageBox.question(
-            self,
-            "Delete Artist",
-            f"Permanently delete all albums by '{art['name']}' from your iPod?\n\n"
-            f"Space to be freed: {format_bytes(art['size_bytes'])} across {art['album_count']} album(s)",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if confirm == QMessageBox.Yes:
-            self.delete_artist_requested.emit(art["name"])
+        self.delete_artist_requested.emit(art["name"])

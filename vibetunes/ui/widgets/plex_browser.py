@@ -309,10 +309,21 @@ class PlexBrowserWidget(QWidget):
         if self.selected_artist:
             self._refresh_album_list_badges()
 
+    @property
+    def displayed_artists(self) -> List[PlexArtistSummary]:
+        return self.filtered_artists
+
+    @displayed_artists.setter
+    def displayed_artists(self, val: List[PlexArtistSummary]):
+        self.filtered_artists = val
+
     def _update_filter_button_counts(self):
         total_artists = len(self.artists)
         on_ipod_cnt = sum(1 for a in self.artists if self.ipod_artist_album_counts.get(normalize_music_key(a.name), 0) > 0)
-        missing_cnt = sum(1 for a in self.artists if self.ipod_artist_album_counts.get(normalize_music_key(a.name), 0) < a.album_count)
+        missing_cnt = sum(
+            1 for a in self.artists
+            if a.album_count > 0 and self.ipod_artist_album_counts.get(normalize_music_key(a.name), 0) < a.album_count
+        )
         self.filter_all_btn.setText(f"All Music ({total_artists})")
         self.filter_ipod_btn.setText(f"✓ Synced ({on_ipod_cnt})")
         self.filter_missing_btn.setText(f"Not Synced ({missing_cnt})")
@@ -452,7 +463,7 @@ class PlexBrowserWidget(QWidget):
 
             if self.filter_mode == "on_ipod" and ipod_cnt == 0:
                 continue
-            if self.filter_mode == "not_on_ipod" and total_cnt > 0 and ipod_cnt >= total_cnt:
+            if self.filter_mode == "not_on_ipod" and (total_cnt == 0 or ipod_cnt >= total_cnt):
                 continue
 
             filtered.append(a)
@@ -529,11 +540,38 @@ class PlexBrowserWidget(QWidget):
         if not self.selected_artist or self.selected_artist.rating_key != artist_key:
             return
         self.current_albums = albums
+
+        # Synchronize artist album count if Plex summary count was inaccurate
+        if self.selected_artist.album_count != len(albums):
+            self.selected_artist.album_count = len(albums)
+            for a in self.artists:
+                if a.rating_key == artist_key:
+                    a.album_count = len(albums)
+                    break
+            self._update_filter_button_counts()
+            norm_art = normalize_music_key(self.selected_artist.name)
+            ipod_cnt = self.ipod_artist_album_counts.get(norm_art, 0)
+            total_cnt = len(albums)
+            if total_cnt > 0 and ipod_cnt >= total_cnt:
+                badge = f"✓ {total_cnt} album{'s' if total_cnt != 1 else ''}"
+                color = QColor("#a6e3a1")
+            elif ipod_cnt > 0:
+                badge = f"◐ {ipod_cnt}/{total_cnt} albums"
+                color = QColor("#89dceb")
+            else:
+                badge = f"{total_cnt} album{'s' if total_cnt != 1 else ''}"
+                color = QColor("#cdd6f4")
+            curr_row = self.artist_list.currentRow()
+            if 0 <= curr_row < self.artist_list.count():
+                self.artist_list.item(curr_row).setText(f"{self.selected_artist.name}\n{badge}")
+                self.artist_list.item(curr_row).setForeground(color)
+
         self.album_header.setText(f"Albums ({len(albums)})")
         self._refresh_album_list_badges()
 
     def _refresh_album_list_badges(self):
         prev_selected_key = self.selected_album.rating_key if self.selected_album else None
+        self.album_list.blockSignals(True)
         self.album_list.clear()
         is_grid = (self.album_view_mode == "grid")
         icon_size = 110 if is_grid else 56
@@ -644,7 +682,7 @@ class PlexBrowserWidget(QWidget):
             else:
                 self.sync_artist_btn.setEnabled(False)
 
-        # Preserve selected album if still displayed
+        # Preserve selected album if still displayed without re-triggering row selection
         if prev_selected_key:
             match_idx = next((i for i, a in enumerate(self.displayed_albums) if a.rating_key == prev_selected_key), None)
             if match_idx is not None:
@@ -653,13 +691,18 @@ class PlexBrowserWidget(QWidget):
                 self._update_album_actions()
             else:
                 self.selected_album = None
+                self.current_tracks = []
                 self._update_album_actions()
                 self.track_table.setRowCount(0)
+                self.track_header.setText("Tracks (0)")
         else:
             self.selected_album = None
+            self.current_tracks = []
             self._update_album_actions()
             self.track_table.setRowCount(0)
-        self.track_header.setText("Tracks (0)")
+            self.track_header.setText("Tracks (0)")
+
+        self.album_list.blockSignals(False)
 
     def update_sync_queue_keys(self, queued_keys: Set[str], active_key: Optional[str] = None):
         self.queued_album_keys = set(queued_keys)
@@ -803,7 +846,15 @@ class PlexBrowserWidget(QWidget):
         if not self.selected_album or self.selected_album.rating_key != album_key:
             return
         self.current_tracks = tracks
+        if self.selected_album.track_count != len(tracks):
+            self.selected_album.track_count = len(tracks)
+            for alb in self.current_albums:
+                if alb.rating_key == album_key:
+                    alb.track_count = len(tracks)
+                    break
+            self._refresh_album_list_badges()
         self._render_tracks_table(tracks)
+        self._update_album_actions()
 
     def _render_tracks_table(self, tracks: List[PlexTrackDetail]):
         if not self.selected_album:
@@ -818,6 +869,12 @@ class PlexBrowserWidget(QWidget):
 
         on_count = len(on_device_indices)
         total_count = len(tracks)
+
+        norm_key = normalize_music_key(self.selected_album.artist_name, self.selected_album.title)
+        if norm_key in self.ipod_album_data:
+            self.ipod_album_data[norm_key]["track_count"] = on_count
+        elif on_count > 0:
+            self.ipod_album_data[norm_key] = {"track_count": on_count, "tracks": []}
 
         if on_count == total_count and total_count > 0:
             status_text = f"✓ {total_count}/{total_count}"
@@ -1001,41 +1058,13 @@ class PlexBrowserWidget(QWidget):
     def _on_delete_album(self):
         if not self.selected_album:
             return
-        reply = QMessageBox.question(
-            self,
-            "Remove Album from iPod",
-            f"Are you sure you want to remove album '{self.selected_album.title}' by {self.selected_album.artist_name} from your iPod?\n\n"
-            f"This will permanently delete the album files from the device.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            self.remove_album_requested.emit(self.selected_album.artist_name, self.selected_album.title)
+        self.remove_album_requested.emit(self.selected_album.artist_name, self.selected_album.title)
 
     def _on_delete_artist(self):
         if not self.selected_artist:
             return
-        norm_art = normalize_music_key(self.selected_artist.name)
-        ipod_art_count = self.ipod_artist_album_counts.get(norm_art, 0)
-        reply = QMessageBox.question(
-            self,
-            "Remove Artist from iPod",
-            f"Are you sure you want to remove ALL {ipod_art_count} album(s) by '{self.selected_artist.name}' from your iPod?\n\n"
-            f"This will permanently delete all music files for this artist from the device.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            self.remove_artist_requested.emit(self.selected_artist.name)
+        self.remove_artist_requested.emit(self.selected_artist.name)
 
     def _on_clean_trash_clicked(self):
-        reply = QMessageBox.question(
-            self,
-            "Clean iPod Trash",
-            "Empty the .Trash-1000 folder on your iPod to reclaim deleted storage space?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
-        )
-        if reply == QMessageBox.Yes:
-            self.clean_trash_requested.emit()
+        self.clean_trash_requested.emit()
 

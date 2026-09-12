@@ -357,24 +357,8 @@ class SyncQueueDialog(QDialog):
             self.remove_task_requested.emit(idx)
 
     def _on_clear_queue_clicked(self):
-        confirm = QMessageBox.question(
-            self,
-            "Clear Queue",
-            f"Are you sure you want to remove all {len(self._queued_tasks)} pending items from the queue?\n(The currently active transfer will not be cancelled)",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if confirm == QMessageBox.Yes:
-            self.clear_queue_requested.emit()
+        self.clear_queue_requested.emit()
 
     def _on_cancel_all_clicked(self):
-        confirm = QMessageBox.question(
-            self,
-            "Cancel Entire Sync",
-            "Are you sure you want to cancel the active download and clear all queued items?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if confirm == QMessageBox.Yes:
-            self.cancel_all_requested.emit()
-            self.accept()
+        self.cancel_all_requested.emit()
+        self.accept()

@@ -196,16 +196,6 @@ class DeviceHeaderWidget(QFrame):
         if not self.current_device:
             return
 
-        confirm = QMessageBox.question(
-            self,
-            "Safe Eject",
-            f"Are you sure you want to eject '{self.current_device.model_name}'?\n\nAll pending writes will be flushed to ensure safe disconnect.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
-        )
-        if confirm != QMessageBox.Yes:
-            return
-
         self.eject_btn.setEnabled(False)
         self.eject_btn.setText("Ejecting...")
         self.status_badge.setText("Flushing Cache...")

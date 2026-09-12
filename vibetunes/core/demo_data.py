@@ -850,6 +850,7 @@ def get_demo_ipod_state() -> Tuple[Set[str], Dict[str, dict], Dict[str, int], Li
                 ))
 
             elif status == "partial":
+                on_ipod_albums.add(norm_key)
                 # Only first portion of tracks on device
                 half = len(alb["tracks"]) - 4
                 synced_tracks = []
@@ -886,10 +887,8 @@ def get_demo_ipod_state() -> Tuple[Set[str], Dict[str, dict], Dict[str, int], Li
                     cover_art=None
                 ))
 
-        if artist_synced_albums > 0:
-            ipod_artist_album_counts[norm_art] = artist_synced_albums
-
         if demo_albums_for_artist:
+            ipod_artist_album_counts[norm_art] = len(demo_albums_for_artist)
             ipod_artists.append(iPodArtist(
                 name=art_name,
                 path=mount_path / art_name,

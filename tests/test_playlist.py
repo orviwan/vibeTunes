@@ -323,7 +323,7 @@ def test_playlist_browser_2pane_and_on_device_status(qapp):
         item1_text = browser.plex_pl_list.item(1).text()
 
         assert "Mix90s" in item0_text
-        assert "(on iPod • 10 tracks" in item0_text
+        assert "(on iPod • 1/10 tracks" in item0_text
         assert "Chill Vibes" in item1_text
         assert "(on iPod" not in item1_text
 
@@ -357,3 +357,52 @@ def test_playlist_browser_2pane_and_on_device_status(qapp):
         browser.refresh_requested.connect(lambda: refresh_events.append(True))
         browser.refresh_btn.click()
         assert len(refresh_events) == 1
+
+
+def test_plex_404_warning_badging(qapp, monkeypatch):
+    """Verifies that tracks unavailable on Plex (HTTP 404) are identified and badged with warnings."""
+    from vibetunes.core.plex_client import PlexManager, PlexTrackDetail
+    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+
+    plex = PlexManager(base_url="http://mock:32400", token="mock-token")
+
+    # 1. Test check_tracks_availability with mocked requests.get
+    t1 = PlexTrackDetail(rating_key="101", title="Track OK", artist_name="Artist", album_title="Album", stream_url="http://mock/101")
+    t2 = PlexTrackDetail(rating_key="102", title="Track 404", artist_name="Artist", album_title="Album", stream_url="http://mock/102")
+
+    class MockResponse:
+        def __init__(self, status_code):
+            self.status_code = status_code
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+
+    def mock_get(url, *args, **kwargs):
+        if "102" in url:
+            return MockResponse(404)
+        return MockResponse(200)
+
+    monkeypatch.setattr("requests.get", mock_get)
+
+    newly_unavail = plex.check_tracks_availability([t1, t2])
+    assert newly_unavail == {"102"}
+    assert plex.is_track_unavailable("102") is True
+    assert plex.is_track_unavailable("101") is False
+
+    # 2. Test PlaylistBrowserWidget renders warning badge and header
+    browser = PlaylistBrowserWidget(plex)
+    browser._render_tracks_table([t1, t2])
+
+    assert browser.track_table.rowCount() == 2
+    # Row 0 (101): Not Synced (normal missing icon)
+    assert browser.track_table.item(0, 2).toolTip() == "Not Synced"
+
+    # Row 1 (102): Warning badge
+    assert "Unavailable on Plex server" in browser.track_table.item(1, 2).toolTip()
+    assert "HTTP 404" in browser.track_table.item(1, 2).toolTip()
+    assert browser.track_table.item(1, 1).foreground().color().name() == "#fab387"
+
+    # Header mentions missing on Plex server (404)
+    assert "⚠ 1 missing on Plex server (404)" in browser.track_header.text()
+

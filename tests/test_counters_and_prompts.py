@@ -267,3 +267,48 @@ def test_album_matching_with_subtitles_and_ampersand(qapp):
     assert "✓ 48/48" in browser.track_header.text()
     assert "✓" in browser.album_list.item(0).text()
     assert browser.sync_artist_btn.text() == "✓ Synced (Re-sync)"
+
+
+def test_no_ok_dialogs_after_tasks_complete(qapp, monkeypatch):
+    """Verifies that task completion (sync, eject, remount) does not show blocking QMessageBox dialogs with OK buttons."""
+    from vibetunes.ui.main_window import MainWindow
+    from vibetunes.ui.widgets.device_header import DeviceHeaderWidget
+    from vibetunes.core.device import iPodDevice
+
+    def fail_popup(*args, **kwargs):
+        pytest.fail(f"Modal dialog popup was triggered unexpectedly: {args}")
+
+    monkeypatch.setattr(QMessageBox, "information", fail_popup)
+    monkeypatch.setattr(QMessageBox, "warning", fail_popup)
+    monkeypatch.setattr(QMessageBox, "question", fail_popup)
+
+    # 1. DeviceHeaderWidget safe eject finished
+    header = DeviceHeaderWidget()
+    header.current_device = iPodDevice(mount_point="/fake/mount", model_name="iPod Classic")
+    header._on_eject_finished(True, "Device unmounted cleanly.")
+    assert header.status_badge.text() == "Safe to Disconnect"
+
+    # 2. DeviceHeaderWidget remount clicked
+    monkeypatch.setattr("vibetunes.ui.widgets.device_header.remount_rw", lambda node, mount: (True, "OK"))
+    header._on_remount_clicked()
+    assert header.status_badge.text() == "Ready (RW)"
+
+    # 3. MainWindow sync finished (success case)
+    monkeypatch.setattr("vibetunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
+    monkeypatch.setattr("vibetunes.ui.main_window.MainWindow._init_plex_connection", lambda self: None)
+    win = MainWindow()
+    try:
+        win._on_sync_finished(10, 50 * 1024 * 1024, [])
+        assert "Sync complete: 10 track(s) synced" in win.statusBar().currentMessage()
+
+        # 4. MainWindow sync finished with Plex 404 notices
+        win._on_sync_finished(4, 20 * 1024 * 1024, [
+            "Plex Server: 'Patience' not found (HTTP 404 - file missing on Plex server)",
+            "Plex Server: 'Live and Let Die' not found (HTTP 404 - file missing on Plex server)",
+        ])
+        msg = win.statusBar().currentMessage()
+        assert "4 track(s) synced" in msg
+        assert "2 track(s) missing on Plex server (HTTP 404)" in msg
+    finally:
+        win.close()
+

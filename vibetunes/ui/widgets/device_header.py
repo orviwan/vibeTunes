@@ -177,11 +177,8 @@ class DeviceHeaderWidget(QFrame):
         node = self.current_device.device_node
         success, msg = remount_rw(node, self.current_device.mount_point)
         if success:
-            QMessageBox.information(
-                self,
-                "Remount Successful",
-                f"iPod filesystem remounted read-write successfully!\n\nYou can now add or remove music."
-            )
+            self.status_badge.setText("Ready (RW)")
+            self.details_label.setText("Filesystem remounted read-write successfully.")
             self.refresh_requested.emit()
         else:
             QMessageBox.warning(
@@ -230,7 +227,6 @@ class DeviceHeaderWidget(QFrame):
             self.details_label.setText("Device unmounted safely. You can unplug the USB cable now.")
             self.eject_btn.setEnabled(False)
             self.eject_btn.setText("Ejected")
-            QMessageBox.information(self, "Safe to Disconnect", message)
             self.eject_completed.emit()
         else:
             self.status_badge.setText("Eject Failed")

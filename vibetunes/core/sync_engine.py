@@ -644,8 +644,12 @@ class SyncWorker(QObject):
                 bytes_transferred += transferred
                 self.track_completed.emit(track.title, True, "OK")
             else:
-                errors.append(f"{track.title}: {err_msg}")
-                self.track_completed.emit(track.title, False, err_msg)
+                if "404" in err_msg:
+                    errors.append(f"Plex Server: '{track.title}' not found (HTTP 404 - file missing on Plex server)")
+                    self.track_completed.emit(track.title, False, "Missing on Plex (404)")
+                else:
+                    errors.append(f"{track.title}: {err_msg}")
+                    self.track_completed.emit(track.title, False, err_msg)
 
         return tracks_transferred, bytes_transferred, errors
 
@@ -671,7 +675,11 @@ class SyncWorker(QObject):
 
         try:
             with requests.get(url_with_token, stream=True, timeout=30) as r:
-                if r.status_code != 200:
+                if r.status_code == 404:
+                    if hasattr(self.plex, "mark_track_unavailable"):
+                        self.plex.mark_track_unavailable(track.rating_key, "HTTP 404 (file missing on Plex server)")
+                    return False, 0, "Missing on Plex server (HTTP 404)"
+                elif r.status_code != 200:
                     return False, 0, f"HTTP {r.status_code}"
 
                 total_size = int(r.headers.get("content-length", track.size_bytes or 0))
@@ -793,10 +801,6 @@ class SyncWorker(QObject):
                     self.track_completed.emit(track.title, False, str(e))
                     continue
 
-                track_title_clean = clean_fat32_name(track.title)
-                ext = track.container or "flac"
-                expected_file = target_dir / f"{track.track_number:02d} - {track_title_clean}.{ext}"
-
                 success, transferred, err_msg = self._download_track(track, expected_file)
                 if success:
                     track_file = expected_file
@@ -804,8 +808,12 @@ class SyncWorker(QObject):
                     bytes_downloaded += transferred
                     self.track_completed.emit(track.title, True, "Downloaded for playlist")
                 else:
-                    errors.append(f"Playlist track '{track.title}': {err_msg}")
-                    self.track_completed.emit(track.title, False, err_msg)
+                    if "404" in err_msg:
+                        errors.append(f"Plex Server: '{track.title}' not found (HTTP 404 - file missing on Plex server)")
+                        self.track_completed.emit(track.title, False, "Missing on Plex (404)")
+                    else:
+                        errors.append(f"Playlist track '{track.title}': {err_msg}")
+                        self.track_completed.emit(track.title, False, err_msg)
                     continue
 
             # Convert to Rockbox path format: /<HDD0>/Artist/...

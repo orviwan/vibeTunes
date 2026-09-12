@@ -2,7 +2,7 @@
 import time
 import requests
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Set
 from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.exceptions import Unauthorized, NotFound
@@ -109,6 +109,63 @@ class PlexManager:
         self._cache_artists: Dict[str, List[PlexArtistSummary]] = {}
         self._cache_albums: Dict[str, List[PlexAlbumSummary]] = {}
         self.library_locations: Dict[str, List[str]] = {}
+        self.unavailable_track_keys: Set[str] = set()
+        self.unavailable_track_reasons: Dict[str, str] = {}
+
+    def mark_track_unavailable(self, rating_key: str, reason: str = "HTTP 404 (file missing on Plex server)"):
+        """Records a track as unavailable on the Plex server."""
+        if rating_key:
+            rk = str(rating_key)
+            self.unavailable_track_keys.add(rk)
+            self.unavailable_track_reasons[rk] = reason
+
+    def mark_track_available(self, rating_key: str):
+        """Removes a track from the unavailable set if successfully fetched."""
+        if rating_key:
+            rk = str(rating_key)
+            self.unavailable_track_keys.discard(rk)
+            self.unavailable_track_reasons.pop(rk, None)
+
+    def is_track_unavailable(self, rating_key: str) -> bool:
+        """Checks if a track rating key is known to be unavailable on Plex."""
+        return str(rating_key) in self.unavailable_track_keys
+
+    def get_track_unavailable_reason(self, rating_key: str) -> Optional[str]:
+        """Returns the reason a track is unavailable on Plex, if known."""
+        return self.unavailable_track_reasons.get(str(rating_key))
+
+    def check_tracks_availability(self, tracks: List["PlexTrackDetail"], max_workers: int = 8) -> Set[str]:
+        """
+        Quickly probes HTTP stream availability for missing tracks in parallel.
+        Any track returning 404 is recorded in unavailable_track_keys.
+        """
+        if not tracks or not self.token:
+            return set()
+        from concurrent.futures import ThreadPoolExecutor
+
+        newly_flagged: Set[str] = set()
+
+        def probe(t: "PlexTrackDetail"):
+            if not t.stream_url:
+                return
+            url = f"{t.stream_url}?X-Plex-Token={self.token}" if "?" not in t.stream_url else f"{t.stream_url}&X-Plex-Token={self.token}"
+            try:
+                with requests.get(url, stream=True, timeout=3) as r:
+                    if r.status_code == 404:
+                        rk = str(t.rating_key)
+                        newly_flagged.add(rk)
+                        self.mark_track_unavailable(rk, "HTTP 404 (file missing on Plex server)")
+                    elif r.status_code == 200:
+                        self.mark_track_available(str(t.rating_key))
+            except Exception:
+                pass
+
+        workers = min(max_workers, len(tracks))
+        if workers > 0:
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                list(ex.map(probe, tracks))
+
+        return newly_flagged
 
     def get_relative_media_path(self, original_filename: str) -> Optional[Path]:
         """

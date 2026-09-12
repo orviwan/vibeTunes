@@ -44,6 +44,8 @@ class PlaylistBrowserWidget(QWidget):
         self.active_sync_playlist_key: Optional[str] = None
         self._icon_on_ipod = make_status_icon(True)
         self._icon_missing = make_status_icon(False)
+        self._icon_warning = make_status_icon("warning")
+        self._icon_partial = make_status_icon("partial")
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 8, 0, 0)
@@ -194,7 +196,10 @@ class PlaylistBrowserWidget(QWidget):
             ipod_pl = self._is_playlist_on_ipod(pl)
             dur_str = f" • {format_duration(pl.duration_ms)}" if pl.duration_ms else ""
             if ipod_pl:
-                item = QListWidgetItem(self._icon_on_ipod, f" {pl.title}  (on iPod • {pl.track_count} tracks{dur_str})")
+                if ipod_pl.track_count < pl.track_count:
+                    item = QListWidgetItem(self._icon_partial, f" {pl.title}  (on iPod • {ipod_pl.track_count}/{pl.track_count} tracks{dur_str})")
+                else:
+                    item = QListWidgetItem(self._icon_on_ipod, f" {pl.title}  (on iPod • {pl.track_count} tracks{dur_str})")
             else:
                 item = QListWidgetItem(self._icon_missing, f" {pl.title}  ({pl.track_count} tracks{dur_str})")
             self.plex_pl_list.addItem(item)
@@ -232,6 +237,9 @@ class PlaylistBrowserWidget(QWidget):
         pl_key = self.selected_playlist.rating_key
         def worker():
             tracks = self.plex.get_playlist_tracks(pl_key)
+            missing = [t for t in tracks if not self._is_track_on_ipod(t)]
+            if missing and self.plex.is_connected():
+                self.plex.check_tracks_availability(missing)
             self.worker_signals.tracks_loaded.emit(pl_key, tracks)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -242,6 +250,19 @@ class PlaylistBrowserWidget(QWidget):
             self._render_tracks_table(self.current_tracks)
 
     def _is_track_on_ipod(self, track: PlexTrackDetail) -> bool:
+        if self.mount_point:
+            from vibetunes.core.sync_engine import find_track_on_ipod
+            found = find_track_on_ipod(
+                ipod_mount=self.mount_point,
+                artist_name=track.artist_name,
+                album_title=track.album_title,
+                track_title=track.title,
+                track_number=track.track_number,
+                disc_number=track.disc_number,
+                original_filename=track.original_filename,
+                plex=self.plex,
+            )
+            return found is not None
         norm_art = normalize_music_key(track.artist_name)
         artist_tracks = self.ipod_artist_tracks.get(norm_art, [])
         return is_plex_track_on_ipod(track, artist_tracks)
@@ -279,12 +300,17 @@ class PlaylistBrowserWidget(QWidget):
         else:
             sync_badge = f"0/{total_tracks}"
 
-        self.track_header.setText(
-            f"Tracks ({total_tracks}) • {sync_badge} • {format_duration(total_duration)} total"
-        )
+        plex_missing_count = sum(1 for t in tracks if self.plex.is_track_unavailable(t.rating_key))
+
+        header_text = f"Tracks ({total_tracks}) • {sync_badge} • {format_duration(total_duration)} total"
+        if plex_missing_count > 0:
+            header_text += f"  •  ⚠ {plex_missing_count} missing on Plex server (404)"
+        self.track_header.setText(header_text)
+
         self.track_table.setRowCount(total_tracks)
         for r, t in enumerate(tracks):
             is_on_dev = (r in on_device_indices)
+            is_plex_unavail = self.plex.is_track_unavailable(t.rating_key)
 
             num_item = QTableWidgetItem(f"{r + 1}")
             num_item.setTextAlignment(Qt.AlignCenter)
@@ -297,6 +323,12 @@ class PlaylistBrowserWidget(QWidget):
                 status_item.setIcon(self._icon_on_ipod)
                 status_item.setToolTip("Synced")
                 title_item.setForeground(QColor("#cdd6f4"))
+            elif is_plex_unavail:
+                status_item.setIcon(self._icon_warning)
+                reason = self.plex.get_track_unavailable_reason(t.rating_key) or "HTTP 404 (file missing on Plex server)"
+                status_item.setToolTip(f"Unavailable on Plex server: {reason}")
+                title_item.setForeground(QColor("#fab387"))
+                title_item.setToolTip(f"Plex Server Error: {reason}")
             else:
                 status_item.setIcon(self._icon_missing)
                 status_item.setToolTip("Not Synced")

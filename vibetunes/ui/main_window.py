@@ -505,11 +505,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes and self.device:
             success, remount_msg = remount_rw(self.device.device_node, self.device.mount_point)
             if success:
-                QMessageBox.information(
-                    self,
-                    "Remount Successful",
-                    "iPod remounted read-write! You can now retry deleting or syncing."
-                )
+                self.statusBar().showMessage("iPod remounted read-write successfully.", 6000)
                 self.scan_for_device()
             else:
                 QMessageBox.warning(
@@ -542,6 +538,7 @@ class MainWindow(QMainWindow):
         self.sync_worker.delete_started.connect(self.sync_drawer.set_delete_started, Qt.QueuedConnection)
         self.sync_worker.track_started.connect(self.sync_drawer.set_track_started, Qt.QueuedConnection)
         self.sync_worker.track_progress.connect(self.sync_drawer.set_track_progress, Qt.QueuedConnection)
+        self.sync_worker.track_completed.connect(self._on_track_completed, Qt.QueuedConnection)
         self.sync_worker.queue_updated.connect(self.sync_drawer.set_queue_status, Qt.QueuedConnection)
         self.sync_worker.queue_changed.connect(self._on_queue_changed, Qt.QueuedConnection)
         self.sync_worker.task_enqueued.connect(self._on_task_enqueued, Qt.QueuedConnection)
@@ -659,6 +656,13 @@ class MainWindow(QMainWindow):
         if not self.is_demo_mode:
             self.playlist_browser.reload_ipod_playlists()
 
+    def _on_track_completed(self, title: str, success: bool, msg: str):
+        if not success:
+            if "404" in msg or "Missing on Plex" in msg:
+                self.statusBar().showMessage(f"Notice: '{title}' missing on Plex server (HTTP 404)", 6000)
+            else:
+                self.statusBar().showMessage(f"Notice: '{title}' - {msg}", 5000)
+
     def _on_sync_finished(self, total_tracks: int, total_bytes: int, errors: list):
         self.sync_drawer.set_sync_active(False)
         if self.queue_dialog:
@@ -670,16 +674,37 @@ class MainWindow(QMainWindow):
         self.plex_browser.update_sync_queue_keys(set(), None)
         self.playlist_browser.update_sync_queue_keys(set(), None)
 
+        # Refresh currently viewed track tables to reflect updated sync and warning states
+        if self.playlist_browser.selected_playlist and self.playlist_browser.current_tracks:
+            self.playlist_browser._render_tracks_table(self.playlist_browser.current_tracks)
+        if self.plex_browser.selected_album and self.plex_browser.current_tracks:
+            self.plex_browser._refresh_album_list_badges()
+            self.plex_browser._render_tracks_table(self.plex_browser.current_tracks)
+
         if errors:
-            msg = f"Sync finished with {len(errors)} notice(s):\n" + "\n".join(errors[:5])
-            QMessageBox.warning(self, "Sync Completed with Notices", msg)
+            plex_404_count = sum(1 for e in errors if "404" in e or "Plex Server" in e)
+            other_errors = len(errors) - plex_404_count
+            if plex_404_count > 0 and other_errors == 0:
+                self.statusBar().showMessage(
+                    f"Sync complete: {total_tracks} track(s) synced • ⚠ {plex_404_count} track(s) missing on Plex server (HTTP 404)",
+                    12000
+                )
+            elif plex_404_count > 0:
+                self.statusBar().showMessage(
+                    f"Sync complete: {total_tracks} track(s) synced • ⚠ {plex_404_count} missing on Plex, {other_errors} notice(s)",
+                    12000
+                )
+            else:
+                self.statusBar().showMessage(
+                    f"Sync complete with {len(errors)} notice(s): {errors[0]}",
+                    10000
+                )
         else:
-            QMessageBox.information(
-                self,
-                "Sync Finished",
-                f"Successfully synced {total_tracks} track(s) ({total_bytes / (1024*1024):.1f} MB) to your iPod!"
+            mb = total_bytes / (1024 * 1024)
+            self.statusBar().showMessage(
+                f"Sync complete: {total_tracks} track(s) synced ({mb:.1f} MB) to iPod.",
+                8000
             )
-        self.statusBar().showMessage("Sync completed.")
 
     def _on_sync_cancelled(self):
         if self.sync_worker:

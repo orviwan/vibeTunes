@@ -221,9 +221,11 @@ class NamingSyncDialog(QDialog):
         self.status_lbl.setText("Applying non-destructive renames on iPod...")
 
         proposals = list(self.proposals)
+        mount_p = Path(self.ipod_mount) if self.ipod_mount else None
         def worker():
             renamed_cnt, errors = apply_naming_alignment(
                 proposals,
+                ipod_mount=mount_p,
                 progress_callback=lambda pct, msg: self.signals.progress.emit(pct, msg)
             )
             self.signals.apply_finished.emit(renamed_cnt, errors)

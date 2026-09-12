@@ -26,6 +26,8 @@ def find_track_on_ipod(
     track_title: str,
     track_number: int = 0,
     disc_number: int = 1,
+    original_filename: Optional[str] = None,
+    plex: Optional[Any] = None,
 ) -> Optional[Path]:
     """
     Searches an iPod filesystem to locate an existing audio track.
@@ -39,6 +41,19 @@ def find_track_on_ipod(
     ipod_path = Path(ipod_mount)
     if not ipod_path.is_dir():
         return None
+
+    # Fast path: If original_filename and plex are provided, check direct fat32 path first
+    if original_filename and plex:
+        try:
+            fat32_rel = plex.get_fat32_media_path(original_filename)
+            if fat32_rel:
+                candidate = ipod_path / fat32_rel
+                if candidate.is_file() and candidate.stat().st_size > 0:
+                    return candidate
+        except Exception:
+            pass
+
+    from vibetunes.core.naming_sync import is_album_match
 
     norm_artist = normalize_music_key(artist_name)
     norm_album = normalize_music_key(album_title)
@@ -100,9 +115,12 @@ def find_track_on_ipod(
         try:
             for d in ad.iterdir():
                 if d.is_dir():
-                    d_norm = normalize_music_key(d.name)
-                    if norm_album in d_norm or d_norm in norm_album:
+                    if is_album_match(album_title, d.name) or is_album_match(d.name, album_title):
                         album_dirs.append(d)
+                    else:
+                        d_norm = normalize_music_key(d.name)
+                        if norm_album in d_norm or d_norm in norm_album:
+                            album_dirs.append(d)
         except Exception:
             pass
 
@@ -127,11 +145,16 @@ def find_track_on_ipod(
             except Exception:
                 pass
 
-        # 3. Fallback: Search all audio files under artist folder
+        # 3. Fallback: Search audio files under artist folder ONLY if folder relates to album or compilation
         try:
             for f in ad.rglob("*"):
                 if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS:
-                    if file_matches(f):
+                    parent_relates = (
+                        is_album_match(album_title, f.parent.name) or
+                        is_album_match(album_title, f.parent.parent.name) or
+                        ad.name in ("Various Artists", "Compilations", "Soundtracks")
+                    )
+                    if parent_relates and file_matches(f):
                         return f
         except Exception:
             pass
@@ -504,6 +527,11 @@ class SyncWorker(QObject):
                             shutil.move(str(tmp), str(target_album_dir))
                         else:
                             shutil.move(str(found_existing_dir), str(target_album_dir))
+                    try:
+                        from vibetunes.core.naming_sync import repair_ipod_playlists
+                        repair_ipod_playlists(self.ipod_mount)
+                    except Exception:
+                        pass
                     return target_album_dir
                 except Exception:
                     return found_existing_dir
@@ -599,6 +627,11 @@ class SyncWorker(QObject):
                         try:
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(existing_file), str(dest_file))
+                            try:
+                                from vibetunes.core.naming_sync import repair_ipod_playlists
+                                repair_ipod_playlists(self.ipod_mount)
+                            except Exception:
+                                pass
                         except Exception:
                             pass
                     self.track_completed.emit(track.title, True, "Already on iPod (skipped)")
@@ -721,26 +754,37 @@ class SyncWorker(QObject):
                 track_title=track.title,
                 track_number=track.track_number,
                 disc_number=track.disc_number,
+                original_filename=track.original_filename,
+                plex=self.plex,
             )
 
             if track_file and track_file.exists():
                 self.track_completed.emit(track.title, True, "Already on iPod (skipped)")
             else:
                 # 2. Track missing from iPod - download from Plex
-                artist_clean = clean_fat32_name(track.artist_name)
-                album_clean = clean_fat32_name(track.album_title)
-                year_part = f"-{track.year}" if getattr(track, "year", None) else ""
-
-                if self.config.naming_pattern == "rockbox_disc":
-                    folder_name = f"{artist_clean}{year_part}-{album_clean}" if year_part else f"{artist_clean}-{album_clean}"
+                fat32_rel_track = self.plex.get_fat32_media_path(track.original_filename) if track.original_filename else None
+                if self.config.naming_pattern == "plex_exact" and fat32_rel_track and len(fat32_rel_track.parts) >= 2:
+                    expected_file = self.ipod_mount / fat32_rel_track
+                    target_dir = expected_file.parent
                 else:
-                    folder_name = album_clean
+                    artist_clean = clean_fat32_name(track.artist_name)
+                    album_clean = clean_fat32_name(track.album_title)
+                    year_part = f"-{track.year}" if getattr(track, "year", None) else ""
 
-                album_dir = self.ipod_mount / artist_clean / folder_name
-                if track.disc_number > 1 and self.config.naming_pattern == "rockbox_disc":
-                    target_dir = album_dir / f"CD {track.disc_number:02d}"
-                else:
-                    target_dir = album_dir
+                    if self.config.naming_pattern == "rockbox_disc":
+                        folder_name = f"{artist_clean}{year_part}-{album_clean}" if year_part else f"{artist_clean}-{album_clean}"
+                    else:
+                        folder_name = album_clean
+
+                    album_dir = self.ipod_mount / artist_clean / folder_name
+                    if track.disc_number > 1 and self.config.naming_pattern == "rockbox_disc":
+                        target_dir = album_dir / f"CD {track.disc_number:02d}"
+                    else:
+                        target_dir = album_dir
+
+                    track_title_clean = clean_fat32_name(track.title)
+                    ext = track.container or "flac"
+                    expected_file = target_dir / f"{track.track_number:02d} - {track_title_clean}.{ext}"
 
                 try:
                     target_dir.mkdir(parents=True, exist_ok=True)

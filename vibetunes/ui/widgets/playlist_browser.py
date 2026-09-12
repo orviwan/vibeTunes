@@ -125,6 +125,12 @@ class PlaylistBrowserWidget(QWidget):
         ipod_layout.addWidget(self.ipod_pl_list)
 
         ipod_actions = QHBoxLayout()
+        self.repair_pl_btn = QPushButton("Repair Paths")
+        self.repair_pl_btn.setToolTip("Fix broken playlist paths to match current iPod file and folder names")
+        self.repair_pl_btn.setEnabled(False)
+        self.repair_pl_btn.clicked.connect(self._on_repair_playlists_clicked)
+        ipod_actions.addWidget(self.repair_pl_btn)
+
         self.del_pl_btn = QPushButton("Delete Playlist")
         self.del_pl_btn.setStyleSheet("""
             QPushButton { color: #f38ba8; }
@@ -175,6 +181,7 @@ class PlaylistBrowserWidget(QWidget):
             self.ipod_playlists = []
             self.ipod_pl_list.clear()
             self.ipod_header.setText("On-iPod Playlists (0)")
+            self.repair_pl_btn.setEnabled(False)
             return
 
         self.ipod_playlists = scan_ipod_playlists(self.mount_point)
@@ -186,6 +193,7 @@ class PlaylistBrowserWidget(QWidget):
 
         self.del_pl_btn.setEnabled(False)
         self.open_pl_btn.setEnabled(bool(self.ipod_playlists))
+        self.repair_pl_btn.setEnabled(bool(self.ipod_playlists))
 
     def _on_search_changed(self, text: str):
         self._filter_playlists()
@@ -362,3 +370,29 @@ class PlaylistBrowserWidget(QWidget):
             pl_dir = Path(self.mount_point) / "Playlists"
             pl_dir.mkdir(parents=True, exist_ok=True)
             open_folder(pl_dir)
+
+    def _on_repair_playlists_clicked(self):
+        if not self.mount_point:
+            return
+        from vibetunes.core.naming_sync import repair_ipod_playlists
+        repaired_pls, repaired_tracks, unres = repair_ipod_playlists(Path(self.mount_point))
+        if repaired_pls > 0:
+            QMessageBox.information(
+                self,
+                "Playlists Repaired",
+                f"Successfully repaired {repaired_pls} playlist(s) ({repaired_tracks} track path(s) updated to match current iPod folders)."
+            )
+        elif unres:
+            QMessageBox.warning(
+                self,
+                "Unresolved Tracks",
+                f"Found {len(unres)} track path(s) in playlists that could not be located on the iPod.\n\nSample:\n" + "\n".join(unres[:5])
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Playlists Verified",
+                "All playlist track paths are already valid and match current iPod folders."
+            )
+        self.reload_ipod_playlists()
+        self.playlists_changed.emit()

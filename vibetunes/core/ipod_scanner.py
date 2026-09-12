@@ -146,6 +146,12 @@ def parse_album_folder_name(folder_name: str, artist_name: str) -> tuple[str, Op
     # 5. Strip disc/CD suffixes e.g. " (Disc 1)", " [CD 2]", " - Disc 01", " CD 1"
     name = re.sub(r"\s*(?:[\(\[-]\s*)?(?:cd|disc)\s*\d+[\)\]]?\s*$", "", name, flags=re.IGNORECASE).strip()
 
+    # 6. Strip trailing (Artist) or [Artist] suffix if present (from Plex folder conventions)
+    art_suffix_pattern = rf"\s*[\(\[](?:{re.escape(artist_name)}|{re.escape(clean_art)})[\)\]]\s*$"
+    name_stripped_suffix = re.sub(art_suffix_pattern, "", name, flags=re.IGNORECASE)
+    if name_stripped_suffix.strip():
+        name = name_stripped_suffix.strip()
+
     return name if name else folder_name, year
 
 def scan_album_directory(album_dir: Path, artist_name: str) -> iPodAlbum:

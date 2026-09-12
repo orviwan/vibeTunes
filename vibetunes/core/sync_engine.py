@@ -143,8 +143,8 @@ class SyncTask:
     artist_name: str
     album_title: str
     album_key: str
-    year: Optional[int]
-    thumb_url: Optional[str]
+    year: Optional[int] = None
+    thumb_url: Optional[str] = None
     specific_track_keys: Optional[Set[str]] = None
     force_overwrite: bool = False
 
@@ -424,12 +424,29 @@ class SyncWorker(QObject):
         artist_clean = clean_fat32_name(task.artist_name)
         album_clean = clean_fat32_name(task.album_title)
 
-        # Check if an album folder for this album already exists under artist directory
+        # 1. Determine target album directory
+        fat32_rel = None
+        if tracks and tracks[0].original_filename:
+            fat32_rel = self.plex.get_fat32_media_path(tracks[0].original_filename)
+
+        if self.config.naming_pattern == "plex_exact" and fat32_rel and len(fat32_rel.parts) >= 2:
+            target_artist_dir = fat32_rel.parts[0]
+            target_album_dir_name = fat32_rel.parts[1]
+            target_album_dir = self.ipod_mount / target_artist_dir / target_album_dir_name
+        elif self.config.naming_pattern == "rockbox_disc":
+            if task.year:
+                folder_name = f"{artist_clean}-{task.year}-{album_clean}"
+            else:
+                folder_name = f"{artist_clean}-{album_clean}"
+            target_album_dir = self.ipod_mount / artist_clean / folder_name
+        else:
+            folder_name = album_clean
+            target_album_dir = self.ipod_mount / artist_clean / folder_name
+
+        # 2. Check if an album folder for this album already exists under artist directory
         from vibetunes.core.ipod_scanner import parse_album_folder_name
-        from vibetunes.core.plex_client import extract_base_album_title
+        from vibetunes.core.naming_sync import is_album_match, _clean_empty_tree
         norm_art = normalize_music_key(task.artist_name)
-        norm_alb = normalize_music_key(task.album_title)
-        base_alb = normalize_music_key(extract_base_album_title(task.album_title))
 
         artist_candidates = [self.ipod_mount / artist_clean]
         try:
@@ -439,6 +456,7 @@ class SyncWorker(QObject):
         except Exception:
             pass
 
+        found_existing_dir: Optional[Path] = None
         for ad in artist_candidates:
             if not ad.is_dir():
                 continue
@@ -446,7 +464,6 @@ class SyncWorker(QObject):
                 for d in ad.iterdir():
                     if not d.is_dir():
                         continue
-                    # Check if this directory already has audio files
                     has_audio = any(
                         f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
                         for f in d.rglob("*")
@@ -454,29 +471,45 @@ class SyncWorker(QObject):
                     if not has_audio:
                         continue
                     clean_title, _ = parse_album_folder_name(d.name, task.artist_name)
-                    d_norm = normalize_music_key(clean_title)
-                    d_raw_norm = normalize_music_key(d.name)
-                    if (
-                        d_norm == norm_alb
-                        or norm_alb in d_norm
-                        or d_norm in norm_alb
-                        or norm_alb in d_raw_norm
-                        or d_raw_norm in norm_alb
-                        or (len(base_alb) >= 3 and (base_alb in d_norm or d_norm in base_alb))
-                    ):
-                        return d
+                    if is_album_match(clean_title, task.album_title) or is_album_match(d.name, task.album_title):
+                        found_existing_dir = d
+                        break
             except Exception:
                 pass
+            if found_existing_dir:
+                break
 
-        if self.config.naming_pattern == "rockbox_disc":
-            if task.year:
-                folder_name = f"{artist_clean}-{task.year}-{album_clean}"
-            else:
-                folder_name = f"{artist_clean}-{album_clean}"
-        else:
-            folder_name = album_clean
+        # 3. If an existing directory was found, rename it in-place to target_album_dir if needed
+        if found_existing_dir:
+            if found_existing_dir.resolve() != target_album_dir.resolve():
+                try:
+                    target_album_dir.parent.mkdir(parents=True, exist_ok=True)
+                    if target_album_dir.exists():
+                        # Target already exists: merge files safely without deletion
+                        for root, dirs, files in os.walk(found_existing_dir):
+                            rel_root = Path(root).relative_to(found_existing_dir)
+                            dest_sub = target_album_dir / rel_root
+                            dest_sub.mkdir(parents=True, exist_ok=True)
+                            for f in files:
+                                src_f = Path(root) / f
+                                dst_f = dest_sub / f
+                                if not dst_f.exists():
+                                    shutil.move(str(src_f), str(dst_f))
+                        _clean_empty_tree(found_existing_dir)
+                    else:
+                        # Direct rename (handling FAT32 case-only difference safely)
+                        if found_existing_dir.name.lower() == target_album_dir.name.lower():
+                            tmp = found_existing_dir.parent / f"{found_existing_dir.name}_vttmp"
+                            shutil.move(str(found_existing_dir), str(tmp))
+                            shutil.move(str(tmp), str(target_album_dir))
+                        else:
+                            shutil.move(str(found_existing_dir), str(target_album_dir))
+                    return target_album_dir
+                except Exception:
+                    return found_existing_dir
+            return found_existing_dir
 
-        return self.ipod_mount / artist_clean / folder_name
+        return target_album_dir
 
     def _process_album(self, task: SyncTask) -> tuple[int, int, list[str]]:
         tracks = self.plex.get_album_tracks(task.album_key)
@@ -519,16 +552,31 @@ class SyncWorker(QObject):
             self.bytes_per_sec = 0.0
             self.track_started.emit(track.title, i + 1, total_tracks)
 
-            # Target directory (CD 01, CD 02 if multi-disc)
-            if is_multidisc and self.config.naming_pattern == "rockbox_disc":
-                target_dir = album_dir / f"CD {track.disc_number:02d}"
-                target_dir.mkdir(exist_ok=True)
+            # Determine destination track path
+            fat32_rel_track = self.plex.get_fat32_media_path(track.original_filename) if track.original_filename else None
+            if self.config.naming_pattern == "plex_exact" and fat32_rel_track and len(fat32_rel_track.parts) >= 2:
+                sub_parts = fat32_rel_track.parts[2:]
+                if len(sub_parts) > 1:
+                    target_dir = album_dir / Path(*sub_parts[:-1])
+                    dest_file = target_dir / sub_parts[-1]
+                elif len(sub_parts) == 1:
+                    target_dir = album_dir
+                    dest_file = target_dir / sub_parts[0]
+                else:
+                    target_dir = album_dir
+                    track_title_clean = clean_fat32_name(track.title)
+                    ext = track.container or "flac"
+                    dest_file = target_dir / f"{track.track_number:02d} - {track_title_clean}.{ext}"
+                target_dir.mkdir(parents=True, exist_ok=True)
             else:
-                target_dir = album_dir
-
-            track_title_clean = clean_fat32_name(track.title)
-            ext = track.container or "flac"
-            dest_file = target_dir / f"{track.track_number:02d} - {track_title_clean}.{ext}"
+                if is_multidisc and self.config.naming_pattern == "rockbox_disc":
+                    target_dir = album_dir / f"CD {track.disc_number:02d}"
+                    target_dir.mkdir(exist_ok=True)
+                else:
+                    target_dir = album_dir
+                track_title_clean = clean_fat32_name(track.title)
+                ext = track.container or "flac"
+                dest_file = target_dir / f"{track.track_number:02d} - {track_title_clean}.{ext}"
 
             # Check if file already exists on iPod (skip unless force_overwrite is requested)
             if not task.force_overwrite:
@@ -546,6 +594,13 @@ class SyncWorker(QObject):
                     )
 
                 if existing_file and existing_file.exists() and existing_file.stat().st_size > 0:
+                    # Rename existing file in-place to dest_file if naming differed
+                    if existing_file.resolve() != dest_file.resolve() and not dest_file.exists():
+                        try:
+                            dest_file.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(existing_file), str(dest_file))
+                        except Exception:
+                            pass
                     self.track_completed.emit(track.title, True, "Already on iPod (skipped)")
                     tracks_transferred += 1
                     continue

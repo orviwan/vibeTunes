@@ -5,7 +5,7 @@ from vibetunes.core.config import AppConfig
 def test_default_config():
     cfg = AppConfig()
     assert cfg.plex_library == "Music"
-    assert cfg.naming_pattern == "rockbox_disc"
+    assert cfg.naming_pattern == "plex_exact"
     assert cfg.transcode_mode == "original"
     assert cfg.download_artwork is True
 

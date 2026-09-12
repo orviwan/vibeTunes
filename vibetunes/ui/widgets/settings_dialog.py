@@ -104,6 +104,7 @@ class SettingsDialog(QDialog):
 
         # Naming Pattern
         self.pattern_combo = QComboBox()
+        self.pattern_combo.addItem("Plex Server File/Folder Structure (Exact layout from Plex server, FAT32-safe) - Recommended", "plex_exact")
         self.pattern_combo.addItem("Rockbox Disc Style (Artist/Artist-Year-Album/CD 01/Track - Title.flac)", "rockbox_disc")
         self.pattern_combo.addItem("Standard Style (Artist/Album/Track - Title.flac)", "standard")
         cur_idx = self.pattern_combo.findData(self.config.naming_pattern)

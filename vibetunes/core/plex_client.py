@@ -3,6 +3,7 @@ import time
 import requests
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Tuple
+from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.exceptions import Unauthorized, NotFound
 
@@ -107,6 +108,41 @@ class PlexManager:
         self.server: Optional[PlexServer] = None
         self._cache_artists: Dict[str, List[PlexArtistSummary]] = {}
         self._cache_albums: Dict[str, List[PlexAlbumSummary]] = {}
+        self.library_locations: Dict[str, List[str]] = {}
+
+    def get_relative_media_path(self, original_filename: str) -> Optional[Path]:
+        """
+        Derives the relative path of a track within the Plex library root.
+        E.g. '/data/media/music/Artist/Album/Track.flac' -> Path('Artist/Album/Track.flac')
+        """
+        if not original_filename:
+            return None
+        p = Path(original_filename)
+        # Check all known library locations
+        all_locs = []
+        for locs in self.library_locations.values():
+            all_locs.extend(locs)
+        for loc in all_locs:
+            try:
+                return p.relative_to(loc)
+            except ValueError:
+                pass
+        # Fallback: if no location matched, take the last 3-4 components
+        parts = p.parts
+        if len(parts) >= 3:
+            return Path(*parts[-3:])
+        return Path(p.name)
+
+    def get_fat32_media_path(self, original_filename: str) -> Optional[Path]:
+        """
+        Returns the relative path from the Plex library with every component
+        sanitized for FAT32 filesystems on iPods.
+        """
+        rel = self.get_relative_media_path(original_filename)
+        if not rel:
+            return None
+        from vibetunes.core.naming import clean_fat32_name
+        return Path(*(clean_fat32_name(part) for part in rel.parts))
 
     def connect(self) -> Tuple[bool, str]:
         """Attempts to connect to Plex. Returns (success, message_or_name)."""
@@ -140,6 +176,10 @@ class PlexManager:
 
         try:
             section = self.server.library.section(library_name)
+            try:
+                self.library_locations[library_name] = [str(p) for p in getattr(section, "locations", [])]
+            except Exception:
+                pass
             raw_artists = section.all()
 
             # Query all albums in section to determine exact album counts per artist

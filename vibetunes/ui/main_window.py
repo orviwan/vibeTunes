@@ -164,6 +164,7 @@ class MainWindow(QMainWindow):
         self.plex_browser.set_library("Lossless Music (Demo)")
         self.playlist_browser.plex = self.plex
         self.playlist_browser.set_mount_point(self.device.mount_point)
+        self.plex_browser.set_ipod_mount(self.device.mount_point)
         self.playlist_browser.reload_all()
         if self.analyzer_dialog:
             self.analyzer_dialog.update_data(self.ipod_artists)
@@ -189,6 +190,7 @@ class MainWindow(QMainWindow):
 
             # Set playlist browser mount
             self.playlist_browser.set_mount_point(self.device.mount_point)
+            self.plex_browser.set_ipod_mount(self.device.mount_point)
 
             # Start detailed storage computation in background
             self._refresh_storage()
@@ -200,6 +202,7 @@ class MainWindow(QMainWindow):
             self.ipod_artists = []
             self.storage_bar.set_storage(0, 0, 0, 0, 0)
             self.playlist_browser.set_mount_point("")
+            self.plex_browser.set_ipod_mount("")
             self.plex_browser.update_ipod_known_albums(set(), {})
             self.statusBar().showMessage("No Rockbox iPod detected. Plug in your iPod via USB.")
 
@@ -325,6 +328,7 @@ class MainWindow(QMainWindow):
         self.header_widget.set_device(None)
         self.storage_bar.set_storage(0, 0, 0, 0, 0)
         self.playlist_browser.set_mount_point("")
+        self.plex_browser.set_ipod_mount("")
         self.plex_browser.update_ipod_known_albums(set(), {})
         self.statusBar().showMessage("iPod safely ejected. Safe to unplug!")
 

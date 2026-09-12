@@ -14,7 +14,7 @@ class AppConfig:
     plex_token: str = ""
     plex_library: str = "Music"
     custom_ipod_path: str = ""
-    naming_pattern: str = "rockbox_disc"  # 'rockbox_disc' or 'standard'
+    naming_pattern: str = "plex_exact"  # 'plex_exact', 'rockbox_disc', or 'standard'
     transcode_mode: str = "original"     # 'original', 'transcode_mp3_v0', 'transcode_mp3_320k'
     download_artwork: bool = True
     theme_mode: str = "dark"

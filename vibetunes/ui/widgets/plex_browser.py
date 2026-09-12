@@ -81,6 +81,7 @@ class PlexBrowserWidget(QWidget):
         self.active_sync_album_key: Optional[str] = None
         self._icon_on_ipod = make_status_icon(True)
         self._icon_missing = make_status_icon(False)
+        self.ipod_mount: str = ""
 
         self.worker_signals = PlexWorkerSignals(self)
         self.worker_signals.artists_loaded.connect(self._on_artists_loaded)
@@ -130,6 +131,12 @@ class PlexBrowserWidget(QWidget):
         self.rescan_ipod_btn.setToolTip("Rescan iPod filesystem for changes")
         self.rescan_ipod_btn.clicked.connect(self.rescan_ipod_requested.emit)
         top_bar.addWidget(self.rescan_ipod_btn)
+
+        self.align_names_btn = QPushButton("Align with Plex")
+        self.align_names_btn.setToolTip("Rename iPod folders and files in-place to match Plex naming conventions (zero deletions)")
+        self.align_names_btn.clicked.connect(self._on_align_names_clicked)
+        self.align_names_btn.setEnabled(False)
+        top_bar.addWidget(self.align_names_btn)
 
         self.clean_trash_btn = QPushButton("Clean Trash")
         self.clean_trash_btn.setToolTip("Empty .Trash-1000 folder on iPod")
@@ -375,6 +382,19 @@ class PlexBrowserWidget(QWidget):
             self._update_album_actions()
             if self.current_tracks:
                 self._render_tracks_table(self.current_tracks)
+
+    def set_ipod_mount(self, mount_point: str):
+        self.ipod_mount = mount_point
+        self.align_names_btn.setEnabled(bool(mount_point))
+
+    def _on_align_names_clicked(self):
+        if not self.ipod_mount:
+            QMessageBox.warning(self, "No iPod Detected", "Please connect an iPod first to align folder naming.")
+            return
+        from vibetunes.ui.widgets.naming_sync_dialog import NamingSyncDialog
+        dialog = NamingSyncDialog(self.ipod_mount, self.plex, self.current_library, self)
+        dialog.alignment_completed.connect(lambda cnt: self.rescan_ipod_requested.emit())
+        dialog.exec()
 
     def _is_track_on_ipod(self, track: PlexTrackDetail) -> bool:
         if not self.selected_album:

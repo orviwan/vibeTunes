@@ -307,15 +307,12 @@ def find_and_delete_ipod_album(mount_point: str, artist_name: str, album_title: 
     Finds and deletes an album folder matching artist_name and album_title on the iPod.
     Returns (success, freed_bytes, message).
     """
-    from vibetunes.core.plex_client import normalize_music_key, extract_base_album_title
+    from vibetunes.core.plex_client import normalize_music_key, is_album_match
 
     mp = Path(mount_point)
     if not mp.is_dir():
         return False, 0, f"iPod mount point {mount_point} not accessible"
 
-    target_album_norm = normalize_music_key(artist_name, album_title)
-    target_alb_only = normalize_music_key(album_title)
-    target_base = normalize_music_key(extract_base_album_title(album_title))
     target_artist_norm = normalize_music_key(artist_name)
 
     # Search for matching artist directory first
@@ -330,15 +327,9 @@ def find_and_delete_ipod_album(mount_point: str, artist_name: str, album_title: 
             if not alb_dir.is_dir():
                 continue
             alb_clean_title, _ = parse_album_folder_name(alb_dir.name, art_dir.name)
-            alb_clean_norm = normalize_music_key(alb_clean_title)
-            alb_dir_norm = normalize_music_key(alb_dir.name)
             is_match = (
-                normalize_music_key(art_dir.name, alb_clean_title) == target_album_norm or
-                normalize_music_key(artist_name, alb_dir.name) == target_album_norm or
-                normalize_music_key(artist_name, alb_clean_title) == target_album_norm or
-                alb_clean_norm == target_alb_only or
-                (len(target_alb_only) >= 3 and (target_alb_only in alb_clean_norm or alb_clean_norm in target_alb_only)) or
-                (len(target_base) >= 3 and (target_base in alb_clean_norm or alb_clean_norm in target_base))
+                is_album_match(alb_clean_title, album_title) or
+                is_album_match(alb_dir.name, album_title)
             )
             if is_match:
 

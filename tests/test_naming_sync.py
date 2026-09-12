@@ -40,6 +40,25 @@ def test_is_album_match():
     assert is_album_match("Slanted and Enchanted", "Slanted & Enchanted: Luxe & Reduxe") is True
     assert is_album_match("Crooked Rain, Crooked Rain", "Crooked Rain, Crooked Rain: LA's Desert Origins") is True
     assert is_album_match("Wowee Zowee", "Wowee Zowee (Sordid Sentinels Edition)") is True
+    assert is_album_match("George Best", "George Best Plus") is True
+    assert is_album_match("1989", "1989 D.L.X.") is True
+    assert is_album_match("The Best of Bond… James Bond", "Best of Bond… James Bond") is True
+    assert is_album_match("(What’s the Story) Morning Glory!", "(What’s the Story) Morning Glory? (deluxe edition)") is True
+
+    # Multi-volume releases must NOT match
+    assert is_album_match("Locked Down and Stripped Back", "Locked Down and Stripped Back, Volume 2") is False
+    assert is_album_match("Locked Down and Stripped Back, Volume 1", "Locked Down and Stripped Back, Volume 2") is False
+    assert is_album_match("Hit Parade 1", "Hit Parade 2") is False
+    assert is_album_match("Part 1", "Part 2") is False
+
+    # Numbered distinct releases must NOT match
+    assert is_album_match("George Best", "George Best 30") is False
+    assert is_album_match("Tommy", "Tommy 30") is False
+
+    # Substring collisions with band name or other albums must NOT match
+    assert is_album_match("The Monkees", "More of the Monkees") is False
+    assert is_album_match("The Monkees", "The Birds, The Bees, & The Monkees") is False
+    assert is_album_match("The Monkees", "The Monkees Present") is False
 
 def test_naming_alignment_and_apply():
     with tempfile.TemporaryDirectory() as tmp_ipod:

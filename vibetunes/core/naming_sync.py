@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Callable, Dict, Tuple
 
 from vibetunes.core.plex_client import (
-    PlexManager, normalize_music_key, extract_base_album_title
+    PlexManager, normalize_music_key, extract_base_album_title, is_album_match
 )
 from vibetunes.core.ipod_scanner import scan_ipod_music, iPodArtist, iPodAlbum
 from vibetunes.core.naming import clean_fat32_name
@@ -23,22 +23,6 @@ class RenameProposal:
     album_title: str
     item_count: int = 0
     description: str = ""
-
-def is_album_match(t1: str, t2: str) -> bool:
-    """Checks if two album titles match, considering editions, subtitles, and normalization."""
-    k1 = normalize_music_key(t1)
-    k2 = normalize_music_key(t2)
-    if k1 == k2:
-        return True
-    b1 = normalize_music_key(extract_base_album_title(t1))
-    b2 = normalize_music_key(extract_base_album_title(t2))
-    if b1 == b2 and len(b1) >= 2:
-        return True
-    if len(b1) >= 4 and (k2.startswith(b1) or f" {b1} " in f" {k2} "):
-        return True
-    if len(b2) >= 4 and (k1.startswith(b2) or f" {b2} " in f" {k1} "):
-        return True
-    return False
 
 def inspect_ipod_naming_alignment(
     ipod_mount: str,

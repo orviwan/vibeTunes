@@ -112,15 +112,16 @@ def find_track_on_ipod(
     for ad in artist_dirs:
         # 2. Check candidate album directories under artist
         album_dirs: List[Path] = []
+        from vibetunes.core.ipod_scanner import parse_album_folder_name
         try:
             for d in ad.iterdir():
                 if d.is_dir():
-                    if is_album_match(album_title, d.name) or is_album_match(d.name, album_title):
+                    clean_d, _ = parse_album_folder_name(d.name, artist_name)
+                    if (
+                        is_album_match(album_title, d.name)
+                        or is_album_match(album_title, clean_d)
+                    ):
                         album_dirs.append(d)
-                    else:
-                        d_norm = normalize_music_key(d.name)
-                        if norm_album in d_norm or d_norm in norm_album:
-                            album_dirs.append(d)
         except Exception:
             pass
 

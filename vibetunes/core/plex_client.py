@@ -58,6 +58,93 @@ def extract_base_album_title(album_title: str) -> str:
         return parts[0].strip()
     return s
 
+EDITION_WORDS = {
+    "deluxe", "expanded", "remaster", "remastered", "anniversary",
+    "special", "collector", "collectors", "bonus", "edition", "version", "plus", "dlx"
+}
+
+VOLUME_PATTERN = re.compile(
+    r"\b(?:vol(?:ume)?\.?\s*(?:\d+|[ivx]+)|pt\.?\s*(?:\d+|[ivx]+)|part\s*(?:\d+|one|two|three|four|five|[ivx]+)|disc\s*\d+|cd\s*\d+)\b|\b(?:ii|iii|iv|v|vi)\b",
+    re.IGNORECASE
+)
+
+def clean_album_title(title: str) -> str:
+    if not title:
+        return ""
+    s = unicodedata.normalize("NFKD", title).casefold()
+    s = s.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+    s = s.replace("'", "").replace('"', "")
+    s = re.sub(r"\s*&\s*", " and ", s)
+    s = re.sub(r"\s*\+\s*", " and ", s)
+    s = re.sub(r"^the\s+", "", s.strip())
+    s = re.sub(r"[^\w\s]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+def extract_album_base_and_volume(title: str) -> tuple[str, str]:
+    if not title:
+        return "", ""
+    s = title.strip()
+    # Strip leading release year prefix if present (e.g. '1992-Album')
+    s = re.sub(r"^(?:19|20)\d{2}\s*[-_]\s*", "", s)
+
+    # Strip trailing parenthetical/bracketed artist name or edition
+    s_no_parens = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*$", "", s).strip()
+    if s_no_parens:
+        s = s_no_parens
+
+    parts = re.split(r"\s*:\s*", s)
+    if len(parts) > 1 and len(parts[0].strip()) >= 2:
+        vol_match_sub = VOLUME_PATTERN.search(parts[1])
+        if not vol_match_sub:
+            s = parts[0].strip()
+
+    vol_matches = VOLUME_PATTERN.findall(title)
+    vol_tag = " ".join(v.lower() for v in vol_matches)
+
+    words = s.split()
+    while words and re.sub(r"[^\w]", "", words[-1]).lower() in EDITION_WORDS:
+        words.pop()
+    s = " ".join(words)
+
+    base = clean_album_title(s)
+    return base, vol_tag
+
+def is_album_match(title1: str, title2: str) -> bool:
+    """
+    Checks if two album titles represent the same release, properly distinguishing
+    different volumes/parts while matching deluxe/remaster/subtitle variants.
+    """
+    if not title1 or not title2:
+        return False
+    # 1. Exact normalized title match
+    k1 = clean_album_title(title1)
+    k2 = clean_album_title(title2)
+    if k1 == k2:
+        return True
+
+    # 2. Match without trailing parenthetical/bracketed content and optional year prefix
+    def clean_paren_and_year(t: str) -> str:
+        s = re.sub(r"^(?:19|20)\d{2}\s*[-_]\s*", "", t.strip())
+        s = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]\s*$", "", s).strip()
+        return clean_album_title(s)
+
+    p1 = clean_paren_and_year(title1)
+    p2 = clean_paren_and_year(title2)
+    if p1 and p2 and p1 == p2:
+        return True
+
+    # 3. Base title and volume comparison
+    b1, v1 = extract_album_base_and_volume(title1)
+    b2, v2 = extract_album_base_and_volume(title2)
+
+    if v1 != v2:
+        return False
+
+    if b1 and b2 and b1 == b2:
+        return True
+
+    return False
+
 @dataclass
 class PlexArtistSummary:
     rating_key: str

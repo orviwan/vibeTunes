@@ -316,3 +316,92 @@ def test_playlist_browser_visual_status(qapp):
     assert not browser.track_table.item(1, 2).icon().isNull()
 
 
+def test_multivolume_album_browser_status(qapp):
+    from pathlib import Path
+    from vibetunes.core.plex_client import (
+        PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
+    )
+    from vibetunes.core.ipod_scanner import iPodTrack
+    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+
+    plex = PlexManager()
+    browser = PlexBrowserWidget(plex)
+
+    artist = PlexArtistSummary(rating_key="1", name="The Wedding Present", album_count=2, thumb_url="")
+    browser.artists = [artist]
+
+    alb1 = PlexAlbumSummary(
+        rating_key="101", title="Locked Down and Stripped Back", artist_name="The Wedding Present", year=2021, track_count=12
+    )
+    alb2 = PlexAlbumSummary(
+        rating_key="102", title="Locked Down and Stripped Back, Volume 2", artist_name="The Wedding Present", year=2022, track_count=12
+    )
+    browser.current_albums = [alb1, alb2]
+
+    # iPod has only Volume 1 (12 tracks)
+    norm_art = normalize_music_key("The Wedding Present")
+    v1_key = normalize_music_key("The Wedding Present", "Locked Down and Stripped Back")
+    known = {v1_key}
+    artist_counts = {norm_art: 1}
+    v1_tracks = [
+        iPodTrack(filename=f"0{i} - Track.mp3", path=Path(f"/ipod/v1/0{i}.mp3"), size_bytes=1000, title=f"Track {i}", track_number=i)
+        for i in range(1, 13)
+    ]
+    # Simulate an older album on iPod having "Brassneck"
+    bizarro_tracks = [
+        iPodTrack(filename="01 - Brassneck.mp3", path=Path("/ipod/bizarro/01.mp3"), size_bytes=1000, title="Brassneck", track_number=1)
+    ]
+    ipod_album_data = {
+        v1_key: {"track_count": 12, "tracks": v1_tracks}
+    }
+    ipod_artist_tracks = {
+        norm_art: v1_tracks + bizarro_tracks
+    }
+
+    browser.update_ipod_known_albums(known, artist_counts, ipod_album_data, ipod_artist_tracks)
+
+    # 1. Select artist
+    browser.selected_artist = artist
+    browser._refresh_album_list_badges()
+
+    # Verify artist badge is 1/2
+    assert "◐ 1/2 albums" in browser.artist_list.item(0).text()
+
+    # Verify album list: alb1 has ✓, alb2 does not
+    assert len(browser.displayed_albums) == 2
+    assert browser.displayed_albums[0].title == "Locked Down and Stripped Back"
+    assert browser.displayed_albums[1].title == "Locked Down and Stripped Back, Volume 2"
+
+    # In grid/list mode, check status
+    status1, on1, _ = browser.get_album_ipod_status(alb1.artist_name, alb1.title, alb1.track_count)
+    status2, on2, _ = browser.get_album_ipod_status(alb2.artist_name, alb2.title, alb2.track_count)
+    assert status1 == "complete"
+    assert status2 == "none"
+
+    # Verify sync button says + Add Missing (1)
+    assert "+ Add Missing (1)" in browser.sync_artist_btn.text()
+
+    # 2. Select Volume 2 and load its tracks (including Brassneck which exists on Bizarro)
+    browser.selected_album = alb2
+    vol2_tracks = [
+        PlexTrackDetail(rating_key="201", title="Brassneck", artist_name="The Wedding Present", album_title=alb2.title, track_number=1, size_bytes=1000, duration_ms=180000),
+        PlexTrackDetail(rating_key="202", title="No", artist_name="The Wedding Present", album_title=alb2.title, track_number=2, size_bytes=1000, duration_ms=180000),
+    ]
+    browser._on_tracks_loaded(alb2.rating_key, vol2_tracks)
+
+    # Tracks must NOT match across artist_tracks
+    assert browser.track_table.rowCount() == 2
+    assert browser.track_table.item(0, 2).toolTip() == "Not Synced"
+    assert browser.track_table.item(1, 2).toolTip() == "Not Synced"
+    assert "0/2 synced" in browser.track_header.text()
+
+    # Album 2 must NOT be marked as on iPod
+    v2_key = normalize_music_key("The Wedding Present", "Locked Down and Stripped Back, Volume 2")
+    assert v2_key not in browser.on_ipod_albums
+
+    # Artist count must remain 1/2
+    assert "◐ 1/2 albums" in browser.artist_list.item(0).text()
+    assert "+ Add Missing (1)" in browser.sync_artist_btn.text()
+
+
+

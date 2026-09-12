@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QSize
 
 from vibetunes.core.plex_client import (
     PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail,
-    normalize_music_key, extract_base_album_title
+    normalize_music_key, extract_base_album_title, is_album_match
 )
 from vibetunes.core.sync_engine import SyncTask
 from vibetunes.core.image_cache import ThumbnailManager
@@ -398,18 +398,15 @@ class PlexBrowserWidget(QWidget):
         device_info = self.ipod_album_data.get(lookup_key)
         if not device_info:
             norm_art = normalize_music_key(self.selected_album.artist_name)
-            norm_alb = normalize_music_key(self.selected_album.title)
             for k, v in self.ipod_album_data.items():
                 if k.startswith(f"{norm_art}::"):
                     k_alb = k.split("::", 1)[1]
-                    if norm_alb in k_alb or k_alb in norm_alb:
+                    if is_album_match(self.selected_album.title, k_alb):
                         device_info = v
                         break
 
         ipod_tracks = list(device_info.get("tracks", [])) if device_info else []
-        norm_art = normalize_music_key(self.selected_album.artist_name)
-        artist_tracks = self.ipod_artist_tracks.get(norm_art, [])
-        return is_plex_track_on_ipod(track, ipod_tracks) or is_plex_track_on_ipod(track, artist_tracks)
+        return is_plex_track_on_ipod(track, ipod_tracks)
 
     def get_album_ipod_status(self, artist_name: str, album_title: str, total_plex_tracks: int = 0) -> tuple[str, int, int]:
         """
@@ -423,18 +420,11 @@ class PlexBrowserWidget(QWidget):
         info = self.ipod_album_data.get(lookup_key)
         if not info:
             norm_art = normalize_music_key(artist_name)
-            norm_alb = normalize_music_key(album_title)
-            base_alb = normalize_music_key(extract_base_album_title(album_title))
             matched_infos = []
             for k, v in self.ipod_album_data.items():
                 if k.startswith(f"{norm_art}::"):
                     k_alb = k.split("::", 1)[1]
-                    k_base = normalize_music_key(extract_base_album_title(k_alb))
-                    if (
-                        norm_alb in k_alb
-                        or k_alb in norm_alb
-                        or (len(base_alb) >= 3 and (base_alb == k_alb or base_alb == k_base or base_alb in k_alb or k_alb in base_alb))
-                    ):
+                    if is_album_match(album_title, k_alb):
                         matched_infos.append(v)
 
             if matched_infos:
@@ -870,9 +860,8 @@ class PlexBrowserWidget(QWidget):
         if target_artist_row >= 0:
             self.artist_list.setCurrentRow(target_artist_row)
             if album_title:
-                norm_alb = normalize_music_key(album_title)
                 for j, alb in enumerate(self.displayed_albums):
-                    if normalize_music_key(alb.title) == norm_alb or norm_alb in normalize_music_key(alb.title):
+                    if is_album_match(alb.title, album_title):
                         self.album_list.setCurrentRow(j)
                         break
 

@@ -1,13 +1,13 @@
-# vibeTunes
+# vibesTunes
 
 **The modern iTunes alternative for syncing lossless FLACs from Plex to your Rockbox iPod.**
 
-vibeTunes bridges the gap between modern self-hosted music streaming on Plex Media Server and the gold standard of offline portable audio: an Apple iPod running Rockbox open-source firmware. Managing a Rockbox-modded iPod no longer requires manual file copying, dealing with fragile FAT32 file naming limits, or converting playlist path formats.
+vibesTunes bridges the gap between modern self-hosted music streaming on Plex Media Server and the gold standard of offline portable audio: an Apple iPod running Rockbox open-source firmware. Managing a Rockbox-modded iPod no longer requires manual file copying, dealing with fragile FAT32 file naming limits, or converting playlist path formats.
 
 *Note: This application was proudly built with the assistance of Google Gemini.*
 
 <p align="center">
-  <img src="vibetunes/assets/screenshot.png" alt="vibeTunes Screenshot" width="850">
+  <img src="vibesTunes/assets/screenshot.png" alt="vibesTunes Screenshot" width="850">
 </p>
 
 ---
@@ -28,34 +28,34 @@ vibeTunes bridges the gap between modern self-hosted music streaming on Plex Med
 
 ## Installation
 
-vibeTunes is a Linux desktop application built with PySide6 (Qt6) and Python 3.10+. Run it quickly using `uv`:
+vibesTunes is a Linux desktop application built with PySide6 (Qt6) and Python 3.10+. Run it quickly using `uv`:
 
 ```bash
-git clone https://github.com/orviwan/vibeTunes.git
-cd vibeTunes
-uv run vibetunes
+git clone https://github.com/orviwan/vibesTunes.git
+cd vibesTunes
+uv run vibesTunes
 ```
 
 ### CLI Flags
 
 ```bash
 # Launch in Demo Mode with a fictional music catalog & simulated iPod
-uv run vibetunes --demo
+uv run vibesTunes --demo
 
 # Launch in Fullscreen Mode (toggle anytime with F11 or Esc)
-uv run vibetunes --fullscreen
+uv run vibesTunes --fullscreen
 
 # Combine flags
-uv run vibetunes --demo --fullscreen
+uv run vibesTunes --demo --fullscreen
 ```
 
 ### Desktop Launcher Integration
 
-To add vibeTunes to your system application menu (KDE Plasma, GNOME Dash, Rofi, etc.):
+To add vibesTunes to your system application menu (KDE Plasma, GNOME Dash, Rofi, etc.):
 
 ```bash
-cp vibetunes/assets/vibetunes.svg ~/.local/share/icons/hicolor/scalable/apps/vibetunes.svg
-cp vibetunes.desktop ~/.local/share/applications/vibetunes.desktop
+cp vibesTunes/assets/vibesTunes.svg ~/.local/share/icons/hicolor/scalable/apps/vibesTunes.svg
+cp vibesTunes.desktop ~/.local/share/applications/vibesTunes.desktop
 update-desktop-database ~/.local/share/applications/
 ```
 
@@ -72,12 +72,12 @@ update-desktop-database ~/.local/share/applications/
 
 ## Demo Mode
 
-Want to test vibeTunes or take clean screenshots without connecting real music libraries or hardware?
+Want to test vibesTunes or take clean screenshots without connecting real music libraries or hardware?
 
-Run vibeTunes in demo mode:
+Run vibesTunes in demo mode:
 
 ```bash
-uv run vibetunes --demo
+uv run vibesTunes --demo
 ```
 
-This populates vibeTunes with fictional artists, albums, procedural cover artwork, playlists, and a simulated iPod device. You can also pass `--fullscreen` or `--maximized`.
+This populates vibesTunes with fictional artists, albums, procedural cover artwork, playlists, and a simulated iPod device. You can also pass `--fullscreen` or `--maximized`.

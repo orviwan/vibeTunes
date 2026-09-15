@@ -9,12 +9,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt, Signal, QObject
 
-from vibetunes.core.plex_client import PlexManager, PlexPlaylistSummary, PlexTrackDetail, normalize_music_key
-from vibetunes.core.ipod_scanner import iPodPlaylist, scan_ipod_playlists, delete_playlist, is_plex_track_on_ipod
-from vibetunes.core.naming import clean_fat32_name
-from vibetunes.core.sync_engine import SyncPlaylistTask
-from vibetunes.ui.widgets.plex_browser import format_duration, make_status_icon
-from vibetunes.ui.widgets.storage_bar import format_bytes
+from vibestunes.core.plex_client import PlexManager, PlexPlaylistSummary, PlexTrackDetail, normalize_music_key
+from vibestunes.core.ipod_scanner import iPodPlaylist, scan_ipod_playlists, delete_playlist, is_plex_track_on_ipod
+from vibestunes.core.naming import clean_fat32_name
+from vibestunes.core.sync_engine import SyncPlaylistTask
+from vibestunes.ui.widgets.plex_browser import format_duration, make_status_icon
+from vibestunes.ui.widgets.storage_bar import format_bytes
 
 class PlaylistWorkerSignals(QObject):
     playlists_loaded = Signal(list)
@@ -251,7 +251,7 @@ class PlaylistBrowserWidget(QWidget):
 
     def _is_track_on_ipod(self, track: PlexTrackDetail) -> bool:
         if self.mount_point:
-            from vibetunes.core.sync_engine import find_track_on_ipod
+            from vibestunes.core.sync_engine import find_track_on_ipod
             found = find_track_on_ipod(
                 ipod_mount=self.mount_point,
                 artist_name=track.artist_name,

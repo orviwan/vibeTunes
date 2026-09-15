@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from PySide6.QtWidgets import QLabel
-from vibetunes.core.plex_client import PlexManager, PlexTrackDetail, PlexAlbumSummary, PlexArtistSummary
-from vibetunes.core.naming_sync import (
+from vibestunes.core.plex_client import PlexManager, PlexTrackDetail, PlexAlbumSummary, PlexArtistSummary
+from vibestunes.core.naming_sync import (
     is_album_match, RenameProposal, inspect_ipod_naming_alignment, apply_naming_alignment
 )
-from vibetunes.core.sync_engine import SyncWorker, SyncTask
-from vibetunes.core.config import AppConfig
+from vibestunes.core.sync_engine import SyncWorker, SyncTask
+from vibestunes.core.config import AppConfig
 
 def test_plex_media_path_resolution():
     plex = PlexManager("http://localhost:32400", "dummy")
@@ -140,8 +140,8 @@ def test_sync_engine_auto_rename_on_sync():
         assert (expected_dir / "01 - Summer Babe.flac").exists()
 
 def test_naming_sync_dialog_ui(qapp):
-    from vibetunes.ui.widgets.naming_sync_dialog import NamingSyncDialog
+    from vibestunes.ui.widgets.naming_sync_dialog import NamingSyncDialog
     plex = PlexManager("http://localhost:32400", "dummy")
     dlg = NamingSyncDialog(ipod_mount="", plex=plex, library_name="Music", auto_scan=False)
-    assert dlg.windowTitle() == "vibeTunes — Align iPod File & Folder Naming with Plex"
+    assert dlg.windowTitle() == "vibesTunes — Align iPod File & Folder Naming with Plex"
     dlg.close()

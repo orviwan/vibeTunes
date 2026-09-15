@@ -10,8 +10,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtCore import Qt, QUrl, QObject, Signal
 
-from vibetunes.core.config import AppConfig
-from vibetunes.core.plex_client import (
+from vibestunes.core.config import AppConfig
+from vibestunes.core.plex_client import (
     PlexManager, create_plex_pin, check_plex_pin, fetch_user_servers, CLIENT_IDENTIFIER
 )
 
@@ -30,7 +30,7 @@ class SettingsDialog(QDialog):
         self.plex = plex
         self.found_servers: List[Dict[str, Any]] = []
 
-        self.setWindowTitle("Settings - vibeTunes")
+        self.setWindowTitle("Settings - vibesTunes")
         self.setMinimumWidth(560)
 
         main_layout = QVBoxLayout(self)

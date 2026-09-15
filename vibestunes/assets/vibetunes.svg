@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#313244"/>
+      <stop offset="100%" stop-color="#181825"/>
+    </linearGradient>
+    <linearGradient id="screenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1e2e"/>
+      <stop offset="100%" stop-color="#11111b"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#89b4fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- iPod Body -->
+  <rect x="36" y="16" width="184" height="224" rx="28" fill="url(#bodyGrad)" stroke="#45475a" stroke-width="4"/>
+  
+  <!-- Screen Border and Bezel -->
+  <rect x="52" y="32" width="152" height="96" rx="8" fill="url(#screenGrad)" stroke="#313244" stroke-width="2"/>
+  
+  <!-- Screen UI representation -->
+  <!-- Top header bar -->
+  <rect x="54" y="34" width="148" height="14" rx="4" fill="#313244"/>
+  <rect x="60" y="38" width="40" height="6" rx="2" fill="#89b4fa"/>
+  <!-- Battery indicator -->
+  <rect x="180" y="38" width="16" height="6" rx="1" fill="#a6e3a1"/>
+  
+  <!-- Music note & Waveform -->
+  <path d="M76 66 v28 m0 -16 h20 v16" stroke="#89b4fa" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <circle cx="71" cy="94" r="5" fill="#89b4fa"/>
+  <circle cx="91" cy="94" r="5" fill="#89b4fa"/>
+  
+  <rect x="110" y="66" width="76" height="6" rx="2" fill="#cdd6f4"/>
+  <rect x="110" y="78" width="56" height="5" rx="2" fill="#a6adc8"/>
+  <rect x="110" y="89" width="68" height="5" rx="2" fill="#585b70"/>
+
+  <!-- Click Wheel -->
+  <circle cx="128" cy="184" r="44" fill="#24273a" stroke="#45475a" stroke-width="2"/>
+  <circle cx="128" cy="184" r="18" fill="url(#accentGrad)"/>
+  
+  <!-- Click Wheel Symbols -->
+  <text x="128" y="152" font-family="sans-serif" font-size="10" font-weight="bold" fill="#a6adc8" text-anchor="middle">MENU</text>
+  <polygon points="120,212 128,218 128,214 136,218 136,206 128,210 128,206" fill="#a6adc8" transform="scale(0.8) translate(32, 54)"/>
+  <polygon points="90,184 98,179 98,189" fill="#a6adc8"/>
+  <polygon points="166,184 158,179 158,189" fill="#a6adc8"/>
+</svg>

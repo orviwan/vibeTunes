@@ -1,12 +1,13 @@
-"""Configuration management for vibeTunes."""
+"""Configuration management for vibesTunes."""
 import json
 import os
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
 
-CONFIG_DIR = Path.home() / ".config" / "vibetunes"
+CONFIG_DIR = Path.home() / ".config" / "vibestunes"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+LEGACY_CONFIG_FILE = Path.home() / ".config" / "vibetunes" / "config.json"
 
 @dataclass
 class AppConfig:
@@ -21,10 +22,11 @@ class AppConfig:
 
     @classmethod
     def load(cls) -> "AppConfig":
-        if not CONFIG_FILE.exists():
+        target_file = CONFIG_FILE if CONFIG_FILE.exists() else (LEGACY_CONFIG_FILE if LEGACY_CONFIG_FILE.exists() else None)
+        if not target_file:
             return cls()
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(target_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
         except Exception:

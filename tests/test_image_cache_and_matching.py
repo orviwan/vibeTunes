@@ -1,7 +1,7 @@
 """Unit tests for music key normalization and artwork extraction helpers."""
 from pathlib import Path
-from vibetunes.core.plex_client import normalize_music_key
-from vibetunes.core.image_cache import extract_embedded_art, _url_hash
+from vibestunes.core.plex_client import normalize_music_key
+from vibestunes.core.image_cache import extract_embedded_art, _url_hash
 
 def test_normalize_music_key():
     # Test curly apostrophe vs straight

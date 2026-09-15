@@ -2,7 +2,7 @@ import pytest
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication
 
-from vibetunes.core.demo_data import (
+from vibestunes.core.demo_data import (
     DEMO_CATALOG,
     DEMO_PLAYLISTS,
     DemoPlexManager,
@@ -11,7 +11,7 @@ from vibetunes.core.demo_data import (
     get_demo_device,
     get_demo_ipod_state,
 )
-from vibetunes.core.sync_engine import DeleteTask, SyncTask
+from vibestunes.core.sync_engine import DeleteTask, SyncTask
 
 
 def test_demo_catalog_and_procedural_art(qapp):
@@ -128,7 +128,7 @@ def test_demo_sync_worker_execution(qapp):
 
 
 def test_main_window_demo_mode(qapp):
-    from vibetunes.ui.main_window import MainWindow
+    from vibestunes.ui.main_window import MainWindow
 
     win = MainWindow(demo_mode=True)
     assert win.is_demo_mode is True

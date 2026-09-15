@@ -12,12 +12,12 @@ from typing import List, Optional, Dict, Any, Callable, Set, Union
 
 from PySide6.QtCore import QObject, Signal
 
-from vibetunes.core.plex_client import PlexManager, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
-from vibetunes.core.config import AppConfig
+from vibestunes.core.plex_client import PlexManager, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
+from vibestunes.core.config import AppConfig
 
 AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aac", ".alac", ".wma"}
 
-from vibetunes.core.naming import clean_fat32_name
+from vibestunes.core.naming import clean_fat32_name
 
 def find_track_on_ipod(
     ipod_mount: Path,
@@ -53,7 +53,7 @@ def find_track_on_ipod(
         except Exception:
             pass
 
-    from vibetunes.core.naming_sync import is_album_match
+    from vibestunes.core.naming_sync import is_album_match
 
     norm_artist = normalize_music_key(artist_name)
     norm_album = normalize_music_key(album_title)
@@ -112,7 +112,7 @@ def find_track_on_ipod(
     for ad in artist_dirs:
         # 2. Check candidate album directories under artist
         album_dirs: List[Path] = []
-        from vibetunes.core.ipod_scanner import parse_album_folder_name
+        from vibestunes.core.ipod_scanner import parse_album_folder_name
         try:
             for d in ad.iterdir():
                 if d.is_dir():
@@ -430,7 +430,7 @@ class SyncWorker(QObject):
         self.sync_finished.emit(overall_tracks, overall_bytes, errors)
 
     def _process_delete(self, task: DeleteTask) -> tuple[bool, int, str]:
-        from vibetunes.core.ipod_scanner import (
+        from vibestunes.core.ipod_scanner import (
             find_and_delete_ipod_album,
             find_and_delete_ipod_artist,
             clean_trash
@@ -468,8 +468,8 @@ class SyncWorker(QObject):
             target_album_dir = self.ipod_mount / artist_clean / folder_name
 
         # 2. Check if an album folder for this album already exists under artist directory
-        from vibetunes.core.ipod_scanner import parse_album_folder_name
-        from vibetunes.core.naming_sync import is_album_match, _clean_empty_tree
+        from vibestunes.core.ipod_scanner import parse_album_folder_name
+        from vibestunes.core.naming_sync import is_album_match, _clean_empty_tree
         norm_art = normalize_music_key(task.artist_name)
 
         artist_candidates = [self.ipod_mount / artist_clean]
@@ -529,7 +529,7 @@ class SyncWorker(QObject):
                         else:
                             shutil.move(str(found_existing_dir), str(target_album_dir))
                     try:
-                        from vibetunes.core.naming_sync import repair_ipod_playlists
+                        from vibestunes.core.naming_sync import repair_ipod_playlists
                         repair_ipod_playlists(self.ipod_mount)
                     except Exception:
                         pass
@@ -629,7 +629,7 @@ class SyncWorker(QObject):
                             dest_file.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(existing_file), str(dest_file))
                             try:
-                                from vibetunes.core.naming_sync import repair_ipod_playlists
+                                from vibestunes.core.naming_sync import repair_ipod_playlists
                                 repair_ipod_playlists(self.ipod_mount)
                             except Exception:
                                 pass

@@ -7,26 +7,26 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
-from vibetunes.core.config import AppConfig
-from vibetunes.core.device import (
+from vibestunes.core.config import AppConfig
+from vibestunes.core.device import (
     iPodDevice, detect_ipod, refresh_storage_quick, compute_detailed_storage,
     is_mount_readonly, remount_rw
 )
-from vibetunes.core.ipod_scanner import (
+from vibestunes.core.ipod_scanner import (
     iPodArtist, scan_ipod_music, find_and_delete_ipod_album,
     find_and_delete_ipod_artist, clean_trash
 )
-from vibetunes.core.plex_client import PlexManager, normalize_music_key
-from vibetunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask, DeleteTask
-from vibetunes.ui.theme import DARK_STYLESHEET
-from vibetunes.ui.widgets.device_header import DeviceHeaderWidget
-from vibetunes.ui.widgets.storage_bar import StorageBarWidget
-from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
-from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
-from vibetunes.ui.widgets.sync_drawer import SyncDrawerWidget
-from vibetunes.ui.widgets.queue_dialog import SyncQueueDialog
-from vibetunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
-from vibetunes.ui.widgets.settings_dialog import SettingsDialog
+from vibestunes.core.plex_client import PlexManager, normalize_music_key
+from vibestunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask, DeleteTask
+from vibestunes.ui.theme import DARK_STYLESHEET
+from vibestunes.ui.widgets.device_header import DeviceHeaderWidget
+from vibestunes.ui.widgets.storage_bar import StorageBarWidget
+from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
+from vibestunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+from vibestunes.ui.widgets.sync_drawer import SyncDrawerWidget
+from vibestunes.ui.widgets.queue_dialog import SyncQueueDialog
+from vibestunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
+from vibestunes.ui.widgets.settings_dialog import SettingsDialog
 
 class MainWorkerSignals(QObject):
     detailed_storage_ready = Signal(object)  # iPodDevice
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
     def __init__(self, demo_mode: bool = False):
         super().__init__()
         self.is_demo_mode = demo_mode
-        self.setWindowTitle("vibeTunes — iPod Rockbox & Plex Manager")
+        self.setWindowTitle("vibesTunes — iPod Rockbox & Plex Manager")
         self.resize(1100, 750)
         self.setStyleSheet(DARK_STYLESHEET)
 
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
 
         # Top Bar: Settings & Window Controls
         top_bar = QHBoxLayout()
-        app_title = QLabel("vibeTunes")
+        app_title = QLabel("vibesTunes")
         app_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #89b4fa;")
         top_bar.addWidget(app_title)
         top_bar.addStretch()
@@ -152,8 +152,8 @@ class MainWindow(QMainWindow):
 
     def _activate_demo_mode(self):
         self.is_demo_mode = True
-        self.setWindowTitle("vibeTunes — [Demo Mode] iPod Rockbox & Plex Manager")
-        from vibetunes.core.demo_data import DemoPlexManager, get_demo_device, get_demo_ipod_state
+        self.setWindowTitle("vibesTunes — [Demo Mode] iPod Rockbox & Plex Manager")
+        from vibestunes.core.demo_data import DemoPlexManager, get_demo_device, get_demo_ipod_state
         self.plex = DemoPlexManager()
         self.device = get_demo_device()
         self.header_widget.set_device(self.device)
@@ -260,7 +260,7 @@ class MainWindow(QMainWindow):
         def worker():
             if not self.is_demo_mode:
                 try:
-                    from vibetunes.core.naming_sync import inspect_ipod_naming_alignment, apply_naming_alignment, repair_ipod_playlists
+                    from vibestunes.core.naming_sync import inspect_ipod_naming_alignment, apply_naming_alignment, repair_ipod_playlists
                     repair_ipod_playlists(Path(mount))
                     if self.plex.is_connected() and self.config.naming_pattern == "plex_exact":
                         proposals = inspect_ipod_naming_alignment(Path(mount), self.plex, self.config.plex_library)
@@ -498,7 +498,7 @@ class MainWindow(QMainWindow):
             self,
             "Filesystem Read-Only",
             "The iPod filesystem is currently mounted read-only by Linux.\n\n"
-            "Would you like vibeTunes to automatically remount it read-write now?",
+            "Would you like vibesTunes to automatically remount it read-write now?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.Yes
         )
@@ -523,7 +523,7 @@ class MainWindow(QMainWindow):
             return
 
         if self.is_demo_mode:
-            from vibetunes.core.demo_data import DemoSyncWorker
+            from vibestunes.core.demo_data import DemoSyncWorker
             self.sync_worker = DemoSyncWorker(tasks)
         else:
             self.sync_worker = SyncWorker(self.plex, self.device.mount_point, self.config)

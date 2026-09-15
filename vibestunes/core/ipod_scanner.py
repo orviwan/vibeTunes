@@ -9,7 +9,7 @@ from typing import Callable, List, Optional, Any
 
 AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".aac", ".alac", ".ogg", ".opus", ".wav", ".wma", ".aiff"}
 
-from vibetunes.core.naming import clean_fat32_name
+from vibestunes.core.naming import clean_fat32_name
 
 @dataclass
 class iPodTrack:
@@ -236,7 +236,7 @@ def scan_ipod_music(mount_point: str, progress_callback: Optional[Callable[[int,
             def add_or_merge_album(alb: iPodAlbum):
                 if alb.track_count <= 0:
                     return
-                from vibetunes.core.plex_client import normalize_music_key
+                from vibestunes.core.plex_client import normalize_music_key
                 alb_k = normalize_music_key(artist.name, alb.title)
                 existing = next(
                     (a for a in artist.albums if normalize_music_key(artist.name, a.title) == alb_k),
@@ -307,7 +307,7 @@ def find_and_delete_ipod_album(mount_point: str, artist_name: str, album_title: 
     Finds and deletes an album folder matching artist_name and album_title on the iPod.
     Returns (success, freed_bytes, message).
     """
-    from vibetunes.core.plex_client import normalize_music_key, is_album_match
+    from vibestunes.core.plex_client import normalize_music_key, is_album_match
 
     mp = Path(mount_point)
     if not mp.is_dir():
@@ -354,7 +354,7 @@ def find_and_delete_ipod_artist(mount_point: str, artist_name: str) -> tuple[boo
     Finds and permanently deletes all music for an artist on the iPod.
     Returns (success, freed_bytes, message).
     """
-    from vibetunes.core.plex_client import normalize_music_key
+    from vibestunes.core.plex_client import normalize_music_key
 
     mp = Path(mount_point)
     if not mp.is_dir():

@@ -10,10 +10,10 @@ import requests
 from PySide6.QtGui import QPixmap, QImage, QPainter, QPainterPath, QColor, QFont, QPen
 from PySide6.QtCore import Qt, QRectF, QObject, Signal
 
-CACHE_DIR = Path.home() / ".cache" / "vibetunes" / "thumbs"
+CACHE_DIR = Path.home() / ".cache" / "vibestunes" / "thumbs"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-IPOD_CACHE_DIR = Path.home() / ".cache" / "vibetunes" / "ipod_thumbs"
+IPOD_CACHE_DIR = Path.home() / ".cache" / "vibestunes" / "ipod_thumbs"
 IPOD_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 def _url_hash(url: str) -> str:
@@ -118,7 +118,7 @@ class ThumbnailManager(QObject):
                 return self._mem_cache[cache_key]
 
         if url.startswith("demo://"):
-            from vibetunes.core.demo_data import get_demo_pixmap
+            from vibestunes.core.demo_data import get_demo_pixmap
             pix = get_demo_pixmap(url, is_artist=is_artist, size=size)
             radius = (size / 2.0) if is_artist else 6.0
             rounded = create_rounded_pixmap(pix, radius=radius, size=size)

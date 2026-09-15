@@ -1,4 +1,4 @@
-from vibetunes.core.sync_engine import clean_fat32_name
+from vibestunes.core.sync_engine import clean_fat32_name
 
 def test_clean_fat32_name():
     assert clean_fat32_name('Song: Title? / Part * 1') == 'Song - Title Part 1'

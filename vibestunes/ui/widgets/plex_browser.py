@@ -10,14 +10,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QIcon, QColor, QPainter, QPen
 from PySide6.QtCore import Qt, Signal, QObject, QSize
 
-from vibetunes.core.plex_client import (
+from vibestunes.core.plex_client import (
     PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail,
     normalize_music_key, extract_base_album_title, is_album_match
 )
-from vibetunes.core.sync_engine import SyncTask
-from vibetunes.core.image_cache import ThumbnailManager
-from vibetunes.core.ipod_scanner import is_plex_track_on_ipod
-from vibetunes.ui.widgets.storage_bar import format_bytes
+from vibestunes.core.sync_engine import SyncTask
+from vibestunes.core.image_cache import ThumbnailManager
+from vibestunes.core.ipod_scanner import is_plex_track_on_ipod
+from vibestunes.ui.widgets.storage_bar import format_bytes
 
 def format_duration(ms: int) -> str:
     total_seconds = ms // 1000

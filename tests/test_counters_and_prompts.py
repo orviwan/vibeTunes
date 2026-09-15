@@ -15,14 +15,14 @@ def qapp():
 
 def test_no_confirmation_prompts_on_remove(qapp, monkeypatch):
     """Verifies that remove/delete actions do not block on modal QMessageBox.question dialogs."""
-    from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
-    from vibetunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
-    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
-    from vibetunes.ui.widgets.queue_dialog import SyncQueueDialog
-    from vibetunes.ui.widgets.device_header import DeviceHeaderWidget
-    from vibetunes.core.device import iPodDevice
-    from vibetunes.core.ipod_scanner import iPodPlaylist
+    from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
+    from vibestunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+    from vibestunes.ui.widgets.queue_dialog import SyncQueueDialog
+    from vibestunes.ui.widgets.device_header import DeviceHeaderWidget
+    from vibestunes.core.device import iPodDevice
+    from vibestunes.core.ipod_scanner import iPodPlaylist
 
     # Monkeypatch QMessageBox.question so that if it is called, the test fails
     def fail_on_question(*args, **kwargs):
@@ -77,7 +77,7 @@ def test_no_confirmation_prompts_on_remove(qapp, monkeypatch):
     pl_browser.ipod_pl_list.setCurrentRow(0)
 
     # Mock delete_playlist so it succeeds
-    monkeypatch.setattr("vibetunes.ui.widgets.playlist_browser.delete_playlist", lambda p: (True, "Deleted"))
+    monkeypatch.setattr("vibestunes.ui.widgets.playlist_browser.delete_playlist", lambda p: (True, "Deleted"))
     monkeypatch.setattr(pl_browser, "reload_ipod_playlists", lambda: None)
     pl_browser._on_delete_ipod_playlist()  # Should not prompt!
 
@@ -103,8 +103,8 @@ def test_no_confirmation_prompts_on_remove(qapp, monkeypatch):
 
 def test_filter_button_counts_match_list_exact(qapp):
     """Verifies that filter button counts (All, Synced, Not Synced) match the list row counts exactly."""
-    from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, normalize_music_key
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, normalize_music_key
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
     plex = PlexManager()
     browser = PlexBrowserWidget(plex)
@@ -154,8 +154,8 @@ def test_filter_button_counts_match_list_exact(qapp):
 
 def test_album_and_track_count_auto_synchronization(qapp):
     """Verifies that artist album_count and album track_count synchronize with actual loaded items."""
-    from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
     plex = PlexManager()
     browser = PlexBrowserWidget(plex)
@@ -195,12 +195,12 @@ def test_album_matching_with_subtitles_and_ampersand(qapp):
     Verifies that albums like 'Slanted & Enchanted: Luxe & Reduxe' match iPod folder
     'Slanted and Enchanted', displaying as synced in the album grid and track table.
     """
-    from vibetunes.core.plex_client import (
+    from vibestunes.core.plex_client import (
         PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail,
         normalize_music_key, extract_base_album_title
     )
-    from vibetunes.core.ipod_scanner import parse_album_folder_name, iPodTrack
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.ipod_scanner import parse_album_folder_name, iPodTrack
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
     from pathlib import Path
 
     # 1. Test parse_album_folder_name strips disc suffixes
@@ -271,9 +271,9 @@ def test_album_matching_with_subtitles_and_ampersand(qapp):
 
 def test_no_ok_dialogs_after_tasks_complete(qapp, monkeypatch):
     """Verifies that task completion (sync, eject, remount) does not show blocking QMessageBox dialogs with OK buttons."""
-    from vibetunes.ui.main_window import MainWindow
-    from vibetunes.ui.widgets.device_header import DeviceHeaderWidget
-    from vibetunes.core.device import iPodDevice
+    from vibestunes.ui.main_window import MainWindow
+    from vibestunes.ui.widgets.device_header import DeviceHeaderWidget
+    from vibestunes.core.device import iPodDevice
 
     def fail_popup(*args, **kwargs):
         pytest.fail(f"Modal dialog popup was triggered unexpectedly: {args}")
@@ -289,13 +289,13 @@ def test_no_ok_dialogs_after_tasks_complete(qapp, monkeypatch):
     assert header.status_badge.text() == "Safe to Disconnect"
 
     # 2. DeviceHeaderWidget remount clicked
-    monkeypatch.setattr("vibetunes.ui.widgets.device_header.remount_rw", lambda node, mount: (True, "OK"))
+    monkeypatch.setattr("vibestunes.ui.widgets.device_header.remount_rw", lambda node, mount: (True, "OK"))
     header._on_remount_clicked()
     assert header.status_badge.text() == "Ready (RW)"
 
     # 3. MainWindow sync finished (success case)
-    monkeypatch.setattr("vibetunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
-    monkeypatch.setattr("vibetunes.ui.main_window.MainWindow._init_plex_connection", lambda self: None)
+    monkeypatch.setattr("vibestunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
+    monkeypatch.setattr("vibestunes.ui.main_window.MainWindow._init_plex_connection", lambda self: None)
     win = MainWindow()
     try:
         win._on_sync_finished(10, 50 * 1024 * 1024, [])

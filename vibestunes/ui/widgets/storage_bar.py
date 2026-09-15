@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushBu
 from PySide6.QtGui import QPainter, QColor, QBrush, QPen
 from PySide6.QtCore import Qt, QRectF, Signal
 
-from vibetunes.ui.theme import COLOR_MUSIC, COLOR_ROCKBOX, COLOR_OTHER, COLOR_FREE, COLOR_TEXT, COLOR_MUTED
+from vibestunes.ui.theme import COLOR_MUSIC, COLOR_ROCKBOX, COLOR_OTHER, COLOR_FREE, COLOR_TEXT, COLOR_MUTED
 
 def format_bytes(b: int) -> str:
     if b >= 1024 ** 3:

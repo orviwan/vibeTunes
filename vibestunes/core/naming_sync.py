@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Callable, Dict, Tuple
 
-from vibetunes.core.plex_client import (
+from vibestunes.core.plex_client import (
     PlexManager, normalize_music_key, extract_base_album_title, is_album_match
 )
-from vibetunes.core.ipod_scanner import scan_ipod_music, iPodArtist, iPodAlbum
-from vibetunes.core.naming import clean_fat32_name
+from vibestunes.core.ipod_scanner import scan_ipod_music, iPodArtist, iPodAlbum
+from vibestunes.core.naming import clean_fat32_name
 
 AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aac", ".alac", ".wma"}
 

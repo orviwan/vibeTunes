@@ -1,5 +1,5 @@
 [project]
-name = "vibetunes"
+name = "vibestunes"
 version = "0.1.0"
 description = "The modern iTunes alternative for syncing lossless FLACs from Plex to your Rockbox iPod"
 authors = [
@@ -15,7 +15,10 @@ dependencies = [
 ]
 
 [project.scripts]
-vibetunes = "vibetunes.main:main"
+vibestunes = "vibestunes.main:main"
+vibesTunes = "vibestunes.main:main"
+vibetunes = "vibestunes.main:main"
+
 
 [build-system]
 requires = ["setuptools>=61.0"]

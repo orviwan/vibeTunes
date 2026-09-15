@@ -1,11 +1,12 @@
 [Desktop Entry]
-Name=vibeTunes
+Name=vibesTunes
 Comment=The modern iTunes alternative for syncing lossless FLACs from Plex to your Rockbox iPod
-Exec=vibetunes
-Icon=vibetunes
+Exec=vibestunes
+Icon=vibesTunes
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Player;FileTools;
-Keywords=ipod;rockbox;plex;music;sync;vibetunes;flac;
+Keywords=ipod;rockbox;plex;music;sync;vibestunes;vibetunes;flac;
 StartupNotify=true
-StartupWMClass=vibetunes
+StartupWMClass=vibestunes
+

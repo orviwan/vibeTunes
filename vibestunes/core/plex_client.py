@@ -1,4 +1,4 @@
-"""Plex API integration for vibeTunes."""
+"""Plex API integration for vibesTunes."""
 import time
 import requests
 from dataclasses import dataclass, field
@@ -7,8 +7,8 @@ from pathlib import Path
 from plexapi.server import PlexServer
 from plexapi.exceptions import Unauthorized, NotFound
 
-CLIENT_IDENTIFIER = "vibetunes-rockbox-manager"
-PRODUCT_NAME = "vibeTunes"
+CLIENT_IDENTIFIER = "vibestunes-rockbox-manager"
+PRODUCT_NAME = "vibesTunes"
 VERSION = "0.1.0"
 
 PLEX_HEADERS = {
@@ -295,7 +295,7 @@ class PlexManager:
         rel = self.get_relative_media_path(original_filename)
         if not rel:
             return None
-        from vibetunes.core.naming import clean_fat32_name
+        from vibestunes.core.naming import clean_fat32_name
         return Path(*(clean_fat32_name(part) for part in rel.parts))
 
     def connect(self) -> Tuple[bool, str]:

@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QTimer
 
-from vibetunes.ui.widgets.storage_bar import format_bytes
+from vibestunes.ui.widgets.storage_bar import format_bytes
 
 class SyncDrawerWidget(QFrame):
     cancel_requested = Signal()

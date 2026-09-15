@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 
-from vibetunes.core.ipod_scanner import (
+from vibestunes.core.ipod_scanner import (
     iPodArtist, iPodAlbum, iPodTrack, open_folder
 )
-from vibetunes.ui.widgets.storage_bar import format_bytes
+from vibestunes.ui.widgets.storage_bar import format_bytes
 
 class StorageAnalyzerDialog(QDialog):
     delete_album_requested = Signal(str, str)  # artist_name, album_title

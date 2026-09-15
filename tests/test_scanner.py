@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from vibetunes.core.ipod_scanner import parse_album_folder_name, scan_ipod_music
+from vibestunes.core.ipod_scanner import parse_album_folder_name, scan_ipod_music
 
 def test_parse_album_folder_name():
     title, yr = parse_album_folder_name("Radiohead-1997-OK Computer", "Radiohead")
@@ -45,7 +45,7 @@ def test_scan_ipod_music_mock():
         assert artists[0].albums[0].track_count == 1
 
 def test_find_and_delete_ipod_album():
-    from vibetunes.core.ipod_scanner import find_and_delete_ipod_album
+    from vibestunes.core.ipod_scanner import find_and_delete_ipod_album
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         alb_dir = root / "Radiohead" / "Radiohead-1997-OK Computer"
@@ -59,7 +59,7 @@ def test_find_and_delete_ipod_album():
         assert not (root / "Radiohead").exists()
 
 def test_find_and_delete_ipod_artist():
-    from vibetunes.core.ipod_scanner import find_and_delete_ipod_artist
+    from vibestunes.core.ipod_scanner import find_and_delete_ipod_artist
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         art_dir = root / "Radiohead"
@@ -76,7 +76,7 @@ def test_find_and_delete_ipod_artist():
         assert not art_dir.exists()
 
 def test_clean_trash():
-    from vibetunes.core.ipod_scanner import clean_trash
+    from vibestunes.core.ipod_scanner import clean_trash
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         trash = root / ".Trash-1000"

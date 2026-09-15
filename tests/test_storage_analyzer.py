@@ -2,10 +2,10 @@
 from pathlib import Path
 from PySide6.QtCore import Qt
 
-from vibetunes.core.ipod_scanner import iPodArtist, iPodAlbum, iPodTrack
-from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary
-from vibetunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
-from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+from vibestunes.core.ipod_scanner import iPodArtist, iPodAlbum, iPodTrack
+from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary
+from vibestunes.ui.widgets.storage_analyzer_dialog import StorageAnalyzerDialog
+from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
 def test_storage_analyzer_aggregation_and_sorting(qapp):
     # Setup mock iPod data

@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 from pathlib import Path
 import tempfile
 
-from vibetunes.core.config import AppConfig
-from vibetunes.core.plex_client import PlexTrackDetail
-from vibetunes.core.sync_engine import SyncWorker, SyncPlaylistTask, find_track_on_ipod
-from vibetunes.core.ipod_scanner import scan_ipod_playlists, delete_playlist, iPodPlaylist
+from vibestunes.core.config import AppConfig
+from vibestunes.core.plex_client import PlexTrackDetail
+from vibestunes.core.sync_engine import SyncWorker, SyncPlaylistTask, find_track_on_ipod
+from vibestunes.core.ipod_scanner import scan_ipod_playlists, delete_playlist, iPodPlaylist
 
 def test_playlist_m3u8_format():
     # Test Rockbox path formatting and UTF-8 BOM encoding
@@ -159,7 +159,7 @@ def test_sync_playlist_skips_existing_tracks():
         assert lines[1] == "/<HDD0>/Ash/Ash-1996-1977/02 - Goldfinger.flac"
 
 def test_repair_ipod_playlists():
-    from vibetunes.core.naming_sync import repair_ipod_playlists
+    from vibestunes.core.naming_sync import repair_ipod_playlists
     with tempfile.TemporaryDirectory() as tmpdir:
         ipod_root = Path(tmpdir)
         pl_dir = ipod_root / "Playlists"
@@ -195,7 +195,7 @@ def test_repair_ipod_playlists():
         assert repaired_lines[1] == "/<HDD0>/Blur/1994-Parklife (Blur)/03 - End of a Century.mp3"
 
 def test_find_track_on_ipod_plex_exact_and_cross_album_guard():
-    from vibetunes.core.plex_client import PlexManager
+    from vibestunes.core.plex_client import PlexManager
     with tempfile.TemporaryDirectory() as tmpdir:
         ipod_root = Path(tmpdir)
 
@@ -296,8 +296,8 @@ def test_sync_playlist_plex_exact_naming():
         assert "/<HDD0>/Ash/1996-1977 (Ash)/02 - Goldfinger.flac" in content
 
 def test_playlist_browser_2pane_and_on_device_status(qapp):
-    from vibetunes.core.plex_client import PlexPlaylistSummary
-    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+    from vibestunes.core.plex_client import PlexPlaylistSummary
+    from vibestunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ipod_root = Path(tmpdir)
@@ -361,8 +361,8 @@ def test_playlist_browser_2pane_and_on_device_status(qapp):
 
 def test_plex_404_warning_badging(qapp, monkeypatch):
     """Verifies that tracks unavailable on Plex (HTTP 404) are identified and badged with warnings."""
-    from vibetunes.core.plex_client import PlexManager, PlexTrackDetail
-    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexTrackDetail
+    from vibestunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
 
     plex = PlexManager(base_url="http://mock:32400", token="mock-token")
 

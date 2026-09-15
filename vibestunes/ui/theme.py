@@ -1,4 +1,4 @@
-"""Modern theme and stylesheet for vibeTunes."""
+"""Modern theme and stylesheet for vibesTunes."""
 
 DARK_STYLESHEET = """
 QMainWindow {

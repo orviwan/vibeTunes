@@ -365,7 +365,7 @@ def is_mount_readonly(mount_point: str) -> bool:
         pass
 
     # Active write test probe
-    test_file = Path(mount_point) / ".vibetunes_rw_probe"
+    test_file = Path(mount_point) / ".vibestunes_rw_probe"
     try:
         with open(test_file, "w") as f:
             f.write("rw")

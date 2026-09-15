@@ -12,8 +12,8 @@ def qapp():
     return app
 
 def test_unified_browser_filtering_and_actions(qapp):
-    from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, normalize_music_key
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, normalize_music_key
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
     plex = PlexManager()
     browser = PlexBrowserWidget(plex)
@@ -88,9 +88,9 @@ def test_unified_browser_filtering_and_actions(qapp):
     assert browser.displayed_albums[0].title == "Kid A"
 
 def test_main_window_tabs_unified(qapp, monkeypatch):
-    monkeypatch.setattr("vibetunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
-    monkeypatch.setattr("vibetunes.ui.main_window.MainWindow._init_plex_connection", lambda self: None)
-    from vibetunes.ui.main_window import MainWindow
+    monkeypatch.setattr("vibestunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
+    monkeypatch.setattr("vibestunes.ui.main_window.MainWindow._init_plex_connection", lambda self: None)
+    from vibestunes.ui.main_window import MainWindow
 
     win = MainWindow()
     try:
@@ -105,9 +105,9 @@ def test_main_window_tabs_unified(qapp, monkeypatch):
 
 def test_partial_album_and_track_status(qapp):
     from pathlib import Path
-    from vibetunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
-    from vibetunes.core.ipod_scanner import iPodTrack, is_plex_track_on_ipod
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
+    from vibestunes.core.ipod_scanner import iPodTrack, is_plex_track_on_ipod
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
     plex = PlexManager()
     browser = PlexBrowserWidget(plex)
@@ -219,9 +219,9 @@ def test_partial_album_and_track_status(qapp):
 
 
 def test_sync_worker_skips_existing_tracks(tmp_path):
-    from vibetunes.core.plex_client import PlexManager, PlexTrackDetail
-    from vibetunes.core.sync_engine import SyncWorker, SyncTask
-    from vibetunes.core.config import AppConfig
+    from vibestunes.core.plex_client import PlexManager, PlexTrackDetail
+    from vibestunes.core.sync_engine import SyncWorker, SyncTask
+    from vibestunes.core.config import AppConfig
 
     mount_dir = tmp_path / "ipod"
     mount_dir.mkdir()
@@ -281,9 +281,9 @@ def test_sync_worker_skips_existing_tracks(tmp_path):
 
 def test_playlist_browser_visual_status(qapp):
     from pathlib import Path
-    from vibetunes.core.plex_client import PlexManager, PlexTrackDetail, normalize_music_key
-    from vibetunes.core.ipod_scanner import iPodTrack
-    from vibetunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
+    from vibestunes.core.plex_client import PlexManager, PlexTrackDetail, normalize_music_key
+    from vibestunes.core.ipod_scanner import iPodTrack
+    from vibestunes.ui.widgets.playlist_browser import PlaylistBrowserWidget
 
     plex = PlexManager()
     browser = PlaylistBrowserWidget(plex)
@@ -318,11 +318,11 @@ def test_playlist_browser_visual_status(qapp):
 
 def test_multivolume_album_browser_status(qapp):
     from pathlib import Path
-    from vibetunes.core.plex_client import (
+    from vibestunes.core.plex_client import (
         PlexManager, PlexArtistSummary, PlexAlbumSummary, PlexTrackDetail, normalize_music_key
     )
-    from vibetunes.core.ipod_scanner import iPodTrack
-    from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+    from vibestunes.core.ipod_scanner import iPodTrack
+    from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
     plex = PlexManager()
     browser = PlexBrowserWidget(plex)
@@ -424,10 +424,10 @@ def test_status_icon_badge_alignment(qapp):
     """
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QPixmap
-    from vibetunes.core.plex_client import (
+    from vibestunes.core.plex_client import (
         PlexManager, PlexArtistSummary, PlexAlbumSummary, normalize_music_key
     )
-    from vibetunes.ui.widgets.plex_browser import (
+    from vibestunes.ui.widgets.plex_browser import (
         PlexBrowserWidget, badge_pixmap_with_status
     )
 

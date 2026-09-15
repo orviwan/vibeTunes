@@ -3,12 +3,12 @@ import pytest
 from pathlib import Path
 from PySide6.QtCore import Qt
 
-from vibetunes.core.plex_client import PlexManager, PlexAlbumSummary, PlexTrackDetail
-from vibetunes.core.config import AppConfig
-from vibetunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask
-from vibetunes.ui.widgets.sync_drawer import SyncDrawerWidget
-from vibetunes.ui.widgets.queue_dialog import SyncQueueDialog
-from vibetunes.ui.widgets.plex_browser import PlexBrowserWidget
+from vibestunes.core.plex_client import PlexManager, PlexAlbumSummary, PlexTrackDetail
+from vibestunes.core.config import AppConfig
+from vibestunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask
+from vibestunes.ui.widgets.sync_drawer import SyncDrawerWidget
+from vibestunes.ui.widgets.queue_dialog import SyncQueueDialog
+from vibestunes.ui.widgets.plex_browser import PlexBrowserWidget
 
 def test_sync_task_properties():
     t1 = SyncTask(
@@ -114,7 +114,7 @@ def test_sync_drawer_view_queue_button(qapp):
 
 def test_sync_queue_dialog(qapp):
     dialog = SyncQueueDialog()
-    assert dialog.windowTitle() == "Sync Queue - vibeTunes"
+    assert dialog.windowTitle() == "Sync Queue - vibesTunes"
 
     # Initially empty
     assert dialog.queue_table.isHidden()
@@ -192,8 +192,8 @@ def test_plex_browser_queued_status_indicator(qapp):
     assert browser.sync_album_btn.isEnabled()
 
 def test_main_window_queue_dialog_connection(qapp, tmp_path):
-    from vibetunes.ui.main_window import MainWindow
-    from vibetunes.core.device import iPodDevice, StorageBreakdown
+    from vibestunes.ui.main_window import MainWindow
+    from vibestunes.core.device import iPodDevice, StorageBreakdown
 
     window = MainWindow()
     window.queue_dialog = SyncQueueDialog(window)
@@ -221,9 +221,9 @@ def test_main_window_queue_dialog_connection(qapp, tmp_path):
     window.close()
 
 def test_main_window_background_scans(qapp, tmp_path, monkeypatch):
-    monkeypatch.setattr("vibetunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
-    from vibetunes.ui.main_window import MainWindow
-    from vibetunes.core.device import iPodDevice, StorageBreakdown
+    monkeypatch.setattr("vibestunes.ui.main_window.detect_ipod", lambda *args, **kwargs: None)
+    from vibestunes.ui.main_window import MainWindow
+    from vibestunes.core.device import iPodDevice, StorageBreakdown
     import time
 
     window = MainWindow()

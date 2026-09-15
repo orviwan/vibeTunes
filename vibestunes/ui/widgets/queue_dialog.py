@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt, Signal
 
-from vibetunes.ui.widgets.storage_bar import format_bytes
+from vibestunes.ui.widgets.storage_bar import format_bytes
 
 class SyncQueueDialog(QDialog):
     remove_task_requested = Signal(int)   # 0-based index of queued item to remove
@@ -17,7 +17,7 @@ class SyncQueueDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Sync Queue - vibeTunes")
+        self.setWindowTitle("Sync Queue - vibesTunes")
         self.resize(680, 520)
         self.setMinimumSize(540, 400)
 
@@ -273,7 +273,7 @@ class SyncQueueDialog(QDialog):
         item_idx = status.get("item_idx", 1)
         total_items = status.get("total_items", 1)
 
-        from vibetunes.core.sync_engine import DeleteTask, SyncPlaylistTask
+        from vibestunes.core.sync_engine import DeleteTask, SyncPlaylistTask
 
         if isinstance(task, DeleteTask):
             self.set_active_delete(task.display_title, item_idx, total_items)

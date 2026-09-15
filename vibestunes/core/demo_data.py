@@ -1,4 +1,4 @@
-"""Demo data generator and mock engine for vibeTunes screenshot capture."""
+"""Demo data generator and mock engine for vibesTunes screenshot capture."""
 import time
 import math
 import hashlib
@@ -12,13 +12,13 @@ from PySide6.QtGui import (
     QLinearGradient, QRadialGradient, QBrush
 )
 
-from vibetunes.core.plex_client import (
+from vibestunes.core.plex_client import (
     PlexManager, PlexArtistSummary, PlexAlbumSummary,
     PlexPlaylistSummary, PlexTrackDetail, normalize_music_key
 )
-from vibetunes.core.device import iPodDevice
-from vibetunes.core.ipod_scanner import iPodArtist, iPodAlbum, iPodTrack
-from vibetunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask, DeleteTask
+from vibestunes.core.device import iPodDevice
+from vibestunes.core.ipod_scanner import iPodArtist, iPodAlbum, iPodTrack
+from vibestunes.core.sync_engine import SyncWorker, SyncTask, SyncPlaylistTask, DeleteTask
 
 # Palette themes for fictional artists
 ARTIST_PALETTES = {
@@ -623,7 +623,7 @@ DEMO_PLAYLISTS = [
 class DemoPlexManager(PlexManager):
     """Provides high fidelity mock responses without needing a live Plex server."""
     def __init__(self):
-        super().__init__(base_url="http://demo.vibetunes.local:32400", token="demo-token-1234")
+        super().__init__(base_url="http://demo.vibestunes.local:32400", token="demo-token-1234")
         self.server_name = "Demo Studio Server"
 
     def connect(self) -> Tuple[bool, str]:
@@ -695,7 +695,7 @@ class DemoPlexManager(PlexManager):
                 size_bytes=t_size,
                 container="flac",
                 bitrate=1411,
-                stream_url=f"http://demo.vibetunes.local:32400/music/{t_idx + 1}",
+                stream_url=f"http://demo.vibestunes.local:32400/music/{t_idx + 1}",
                 part_key=f"part_{art_idx + 1}_{alb_idx + 1}_{t_idx + 1}",
                 original_filename=f"{t_idx + 1:02d} - {t_title}.flac",
                 year=alb["year"]
@@ -733,7 +733,7 @@ class DemoPlexManager(PlexManager):
                 size_bytes=size,
                 container="flac",
                 bitrate=1411,
-                stream_url=f"http://demo.vibetunes.local:32400/pl/{idx + 1}",
+                stream_url=f"http://demo.vibestunes.local:32400/pl/{idx + 1}",
                 part_key=f"pl_part_{playlist_key}_{idx + 1}",
                 original_filename=f"{idx + 1:02d} - {title}.flac",
                 year=2021
@@ -755,7 +755,7 @@ class DemoPlexManager(PlexManager):
 
 def get_demo_device() -> iPodDevice:
     """Returns a realistic simulated 160 GB iPod Classic 7th Gen."""
-    from vibetunes.core.device import StorageBreakdown
+    from vibestunes.core.device import StorageBreakdown
     total = 160 * 1000 * 1000 * 1000  # ~149.0 GiB reported by df
     music = 64 * 1024 * 1024 * 1024   # ~64.0 GiB
     rockbox = 48 * 1024 * 1024        # ~48.0 MiB
@@ -908,7 +908,7 @@ class DemoSyncWorker(SyncWorker):
     indicators without modifying real hardware or files.
     """
     def __init__(self, tasks: List[Any], parent=None):
-        from vibetunes.core.config import AppConfig
+        from vibestunes.core.config import AppConfig
         super().__init__(
             plex=DemoPlexManager(),
             ipod_mount="/media/ipod/DEMO_IPOD",

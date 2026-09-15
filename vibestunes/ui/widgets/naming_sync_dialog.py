@@ -10,8 +10,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QObject
 from PySide6.QtGui import QColor, QIcon, QFont
 
-from vibetunes.core.plex_client import PlexManager
-from vibetunes.core.naming_sync import (
+from vibestunes.core.plex_client import PlexManager
+from vibestunes.core.naming_sync import (
     RenameProposal, inspect_ipod_naming_alignment, apply_naming_alignment
 )
 
@@ -43,7 +43,7 @@ class NamingSyncDialog(QDialog):
         self.signals.scan_finished.connect(self._on_scan_finished)
         self.signals.apply_finished.connect(self._on_apply_finished)
 
-        self.setWindowTitle("vibeTunes — Align iPod File & Folder Naming with Plex")
+        self.setWindowTitle("vibesTunes — Align iPod File & Folder Naming with Plex")
         self.resize(900, 560)
         self.setStyleSheet("""
             QDialog { background-color: #1e1e2e; color: #cdd6f4; }

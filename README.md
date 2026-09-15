@@ -7,7 +7,7 @@ vibesTunes bridges the gap between modern self-hosted music streaming on Plex Me
 *Note: This application was proudly built with the assistance of Google Gemini.*
 
 <p align="center">
-  <img src="vibesTunes/assets/screenshot.png" alt="vibesTunes Screenshot" width="850">
+  <img src="vibestunes/assets/screenshot.png" alt="vibesTunes Screenshot" width="850">
 </p>
 
 ---
@@ -54,7 +54,7 @@ uv run vibesTunes --demo --fullscreen
 To add vibesTunes to your system application menu (KDE Plasma, GNOME Dash, Rofi, etc.):
 
 ```bash
-cp vibesTunes/assets/vibesTunes.svg ~/.local/share/icons/hicolor/scalable/apps/vibesTunes.svg
+cp vibestunes/assets/vibesTunes.svg ~/.local/share/icons/hicolor/scalable/apps/vibesTunes.svg
 cp vibesTunes.desktop ~/.local/share/applications/vibesTunes.desktop
 update-desktop-database ~/.local/share/applications/
 ```

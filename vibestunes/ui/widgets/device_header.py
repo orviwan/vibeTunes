@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QObject
 
-from vibetunes.core.device import iPodDevice, eject_ipod, is_mount_readonly, remount_rw
+from vibestunes.core.device import iPodDevice, eject_ipod, is_mount_readonly, remount_rw
 
 class EjectWorkerSignals(QObject):
     step = Signal(str)

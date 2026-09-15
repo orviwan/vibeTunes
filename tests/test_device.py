@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from vibetunes.core.device import parse_rockbox_info, get_target_model_name, detect_ipod
+from vibestunes.core.device import parse_rockbox_info, get_target_model_name, detect_ipod
 
 def test_get_target_model_name():
     assert get_target_model_name("ipod6g") == "iPod Classic (6th/7th Gen)"
@@ -39,20 +39,20 @@ def test_detect_ipod_custom_path():
         assert dev.model_name == "iPod Classic (6th/7th Gen)"
 
 def test_is_mount_readonly_rw():
-    from vibetunes.core.device import is_mount_readonly
+    from vibestunes.core.device import is_mount_readonly
     with tempfile.TemporaryDirectory() as tmpdir:
         # Normal writable directory should return False
         assert is_mount_readonly(tmpdir) is False
 
 def test_remount_rw_no_node():
-    from vibetunes.core.device import remount_rw
+    from vibestunes.core.device import remount_rw
     success, msg = remount_rw("")
     assert success is False
     assert "No device node" in msg
 
 def test_auto_mount_unmounted_ipod(monkeypatch):
     import json
-    from vibetunes.core.device import auto_mount_unmounted_ipod
+    from vibestunes.core.device import auto_mount_unmounted_ipod
 
     mock_lsblk = json.dumps({
         "blockdevices": [
